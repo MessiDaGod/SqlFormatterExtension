@@ -1,9 +1,13 @@
 {
     "name": "sql-stylist",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/MessiDaGod/SqlFormatterExtension"
+    },
     "displayName": "SQL Stylist (T-SQL Formatter)",
     "description": "Opinionated T-SQL formatter matching ChatGPT's house style: uppercase keywords, clean indentation, optional AS alignment and block-comments.",
     "version": "0.1.0",
-    "publisher": "your-name",
+    "publisher": "joeshakely",
     "engines": {
         "vscode": "^1.85.0"
     },
@@ -11,7 +15,9 @@
         "Formatters"
     ],
     "activationEvents": [
-        "onLanguage:sql"
+        "onLanguage:sql",
+        "onLanguage:plaintext",
+        "onCommand:sqlStylist.formatSelectionOrDocument"
     ],
     "main": "./dist/extension.js",
     "contributes": {
@@ -51,6 +57,29 @@
                     "description": "Align `AS` in SELECT lists (naive; best for simple SELECT lists)."
                 }
             }
+        },
+        "commands": [
+            {
+                "command": "sqlStylist.formatSelectionOrDocument",
+                "title": "SQL Stylist: Format SQL (Selection or Document)",
+                "category": "SQL Stylist"
+            }
+        ],
+        "menus": {
+            "editor/context": [
+                {
+                    "command": "sqlStylist.formatSelectionOrDocument",
+                    "group": "2_sql",
+                    "when": "resourceExtname =~ /\\.(sql|txt)$/"
+                }
+            ],
+            "editor/title": [
+                {
+                    "command": "sqlStylist.formatSelectionOrDocument",
+                    "group": "navigation@100",
+                    "when": "resourceExtname =~ /\\.(sql|txt)$/"
+                }
+            ]
         }
     },
     "scripts": {
