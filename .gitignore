@@ -15,6 +15,7 @@ pnpm-debug.log*
 # VS Code workspace settings (keep shareable ones)
 .vscode/*
 !.vscode/launch.json
+!.vscode/tasks.json
 !.vscode/extensions.json
 
 # OS cruft

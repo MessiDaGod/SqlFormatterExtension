@@ -1,0 +1,37 @@
+{
+    "$schema": "vscode://schemas/tasks",
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "npm: compile",
+            "type": "npm",
+            "script": "compile",
+            "problemMatcher": [
+                "$tsc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "npm: watch",
+            "type": "npm",
+            "script": "watch",
+            "problemMatcher": [
+                "$tsc"
+            ],
+            "isBackground": true
+        },
+        {
+            "label": "npm: package",
+            "type": "npm",
+            "script": "package"
+        },
+        {
+            "label": "extension: kill tasks",
+            "type": "shell",
+            "command": "echo Killing background tasks; pkill -f 'esbuild.*--watch' || true"
+        }
+    ]
+}

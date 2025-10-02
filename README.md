@@ -5,39 +5,45 @@ An opinionated formatter that gets your `.sql` files to look like the way I usua
 ## Quick Start
 
 1. **Create the project**
-   ```bash
-   mkdir sql-stylist && cd sql-stylist
-   # drop the files from this repo into this folder
-   npm i
-   npm run compile
-   ```
+
+```bash
+mkdir sql-stylist && cd sql-stylist
+# drop the files from this repo into this folder
+npm i
+npm run compile
+```
 
 2. **Run in VS Code**
-   - Open this folder in VS Code.
-   - Press `F5` (Run → Start Debugging) to launch an Extension Development Host.
-   - Open any `.sql` file there and run **Format Document**.
+
+- Open this folder in VS Code.
+- Press `F5` (Run → Start Debugging) to launch an Extension Development Host.
+- Open any `.sql` file there and run **Format Document**.
 
 3. **Make it your default SQL formatter**
-   - In the Extension Host window: Command Palette → `Preferences: Open Settings (JSON)` and add:
-   ```json
-   {
-     "editor.defaultFormatter": "your-name.sql-stylist",
-     "[sql]": {
-       "editor.defaultFormatter": "your-name.sql-stylist",
-       "editor.formatOnSave": true
-     },
-     "sqlStylist.convertLineCommentsToBlock": true,
-     "sqlStylist.alignAs": false
-   }
-   ```
+
+- In the Extension Host window: Command Palette → `Preferences: Open Settings (JSON)` and add:
+
+```json
+{
+  "editor.defaultFormatter": "your-name.sql-stylist",
+  "[sql]": {
+    "editor.defaultFormatter": "your-name.sql-stylist",
+    "editor.formatOnSave": true
+  },
+  "sqlStylist.convertLineCommentsToBlock": true,
+  "sqlStylist.alignAs": false
+}
+```
 
 4. **Package to VSIX (optional)**
-   ```bash
-   npm run package
-   # then install the .vsix in VS Code (Extensions → … → Install from VSIX)
-   ```
+
+```bash
+npm run package
+# then install the .vsix in VS Code (Extensions → … → Install from VSIX)
+```
 
 ## Options
+
 - `sqlStylist.keywordCase` — `upper | lower | preserve` (default: `upper`)
 - `sqlStylist.tabWidth` — spaces per indent (default: `4`)
 - `sqlStylist.linesBetweenQueries` — blank lines between queries (default: `2`)
@@ -45,10 +51,11 @@ An opinionated formatter that gets your `.sql` files to look like the way I usua
 - `sqlStylist.alignAs` — pad spaces to align `AS` in SELECT lists (naive; off by default)
 
 ## Notes & Limitations
+
 - Uses [`sql-formatter`](https://www.npmjs.com/package/sql-formatter) under the hood with the `transactsql` dialect.
 - `alignAs` is a simple text pass that works best when `sql-formatter` has put one select item per line.
 - Comment conversion only targets **comment-only** lines. Inline `--` after code are left as-is.
 
 ## Dev Tips
+
 - See logs in **View → Output → SQL Stylist**.
-- Live build: `npm run watch` and use the Developer: Reload Window command in the Extension Host.
