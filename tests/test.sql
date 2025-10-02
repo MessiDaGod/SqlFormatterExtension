@@ -64,7 +64,7 @@ SELECT
     END                         AS VendorLiabInsurDate
 FROM CommitPayments cp
 JOIN detail d ON cp.hdetail = d.hmy
-AND d.bRet = 0
+    AND d.bRet = 0
     AND ISNULL(d.hchkorchg, 0) = 0
 JOIN trans t ON t.hMy = cp.hTran
 JOIN person pr ON pr.hMy = cp.hPerson
@@ -77,7 +77,7 @@ LEFT JOIN trans_int ti ON ti.hTran = t.hMy
 LEFT JOIN caparam cap ON cap.hchart = a.hchart
 LEFT JOIN property f ON f.hMy = t.hFunding
 LEFT JOIN [contract] co ON co.hmy = d.hContract
-AND ISNULL(co.hContract, 0) = 0
+    AND ISNULL(co.hContract, 0) = 0
 LEFT JOIN Job j ON j.hmy = d.hJob
 LEFT JOIN glinvregtrans InvReg ON InvReg.hPayable = t.hMy
 LEFT JOIN cmdetail cmret ON cmret.hRetDetail = d.hmy
@@ -139,5 +139,4 @@ GROUP BY
     v.dDateLiabInsur,
     ISNULL(cmret.s2ndVendor, ISNULL(cmnoret.s2ndvendor, '')),
     ISNULL(cmret.h2ndVendor, ISNULL(cmnoret.h2ndVendor, 0))
-HAVING
-    MAX(ISNULL(b.bInactive, 0)) = 0;
+HAVING  MAX(ISNULL(b.bInactive, 0)) = 0;
