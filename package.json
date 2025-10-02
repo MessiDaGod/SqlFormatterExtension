@@ -1,0 +1,72 @@
+{
+    "name": "sql-stylist",
+    "displayName": "SQL Stylist (T-SQL Formatter)",
+    "description": "Opinionated T-SQL formatter matching ChatGPT's house style: uppercase keywords, clean indentation, optional AS alignment and block-comments.",
+    "version": "0.1.0",
+    "publisher": "your-name",
+    "engines": {
+        "vscode": "^1.85.0"
+    },
+    "categories": [
+        "Formatters"
+    ],
+    "activationEvents": [
+        "onLanguage:sql"
+    ],
+    "main": "./dist/extension.js",
+    "contributes": {
+        "configuration": {
+            "title": "SQL Stylist",
+            "properties": {
+                "sqlStylist.keywordCase": {
+                    "type": "string",
+                    "enum": [
+                        "upper",
+                        "lower",
+                        "preserve"
+                    ],
+                    "default": "upper",
+                    "description": "Keyword letter case."
+                },
+                "sqlStylist.tabWidth": {
+                    "type": "integer",
+                    "default": 4,
+                    "minimum": 0,
+                    "description": "Spaces per indent level."
+                },
+                "sqlStylist.linesBetweenQueries": {
+                    "type": "integer",
+                    "default": 2,
+                    "minimum": 0,
+                    "description": "Blank lines between queries."
+                },
+                "sqlStylist.convertLineCommentsToBlock": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Convert `--` comments to `/* ... */` on formatting (comment-only lines)."
+                },
+                "sqlStylist.alignAs": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Align `AS` in SELECT lists (naive; best for simple SELECT lists)."
+                }
+            }
+        }
+    },
+    "scripts": {
+        "compile": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --platform=node --external:vscode --format=cjs",
+        "watch": "npm run compile -- --watch",
+        "package": "vsce package",
+        "lint": "echo \"No lint configured\""
+    },
+    "devDependencies": {
+        "@types/node": "^20.0.0",
+        "@types/vscode": "^1.85.0",
+        "esbuild": "^0.21.0",
+        "typescript": "^5.4.0",
+        "vsce": "^2.15.0"
+    },
+    "dependencies": {
+        "sql-formatter": "^15.2.0"
+    }
+}
