@@ -23,6 +23,7 @@ export function formatSql(input: string, opts: StylistOptions): string {
   out = uppercaseFunctions(out); // MAX/MIN/ISNULL/GETDATE/CONVERT/CAST/etc.
   out = uppercaseDataTypes(out); // DATETIME/DATE/DECIMAL/NUMERIC/etc.
   out = compactCaseWhenHeaders(out); // "CASE\nWHEN" -> "CASE WHEN" where safe
+  out = compactFromFirstTable(out);
 
   if (opts.convertLineCommentsToBlock) {
     out = convertLineComments(out);
@@ -141,4 +142,14 @@ function uppercaseDataTypes(text: string): string {
 /** Prefer single-line header “CASE WHEN” over split headers when it reads cleaner. */
 function compactCaseWhenHeaders(text: string): string {
   return text.replace(/CASE\s*\n\s*WHEN/gi, "CASE WHEN");
+}
+
+/** Keep first table alias on the same line as FROM. */
+function compactFromFirstTable(text: string): string {
+  return text.replace(
+    /\bFROM\s*\n\s*([A-Za-z0-9_\[\]]+\s+\w+)/gi,
+    (match, grp) => {
+      return `FROM ${grp}`;
+    }
+  );
 }
