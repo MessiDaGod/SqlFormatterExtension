@@ -32,22 +32,9 @@ export function activate(context: vscode.ExtensionContext) {
       const fullRange = new vscode.Range(start, end);
       const text = document.getText();
 
-      const cfg = vscode.workspace.getConfiguration("sqlStylist");
-      const options: StylistOptions = {
-        keywordCase: cfg.get<"upper" | "lower" | "preserve">(
-          "keywordCase",
-          "upper"
-        ),
-        tabWidth: cfg.get<number>("tabWidth", 4),
-        linesBetweenQueries: cfg.get<number>("linesBetweenQueries", 2),
-        convertLineCommentsToBlock: cfg.get<boolean>(
-          "convertLineCommentsToBlock",
-          true
-        ),
-        alignAs: cfg.get<boolean>("alignAs", false),
-        commaBeforeColumn: cfg.get<boolean>("commaBeforeColumn", false),
-        oneLineFunctionArgs: cfg.get<boolean>("oneLineFunctionArgs", true),
-      };
+      const options = optionsFromConfig(
+        vscode.workspace.getConfiguration("sqlStylist")
+      );
 
       try {
         const formatted = formatSql(text, options);
