@@ -15,7 +15,6 @@ export interface StylistOptions {
 }
 
 export function formatSql(input: string, opts: StylistOptions): string {
-  // 0) Base pass
   let out = format(input, {
     language: "transactsql",
     keywordCase: opts.keywordCase,
@@ -23,42 +22,23 @@ export function formatSql(input: string, opts: StylistOptions): string {
     linesBetweenQueries: opts.linesBetweenQueries,
   });
 
-  // 1) Structural reshaping
-  out = compactFromFirstTable(out); // FROM CommitPayments cp
-  out = fixSplitJoinNames(out); // avoid LEFT JOIN\nContract
-  out = leftAlignJoins(out); // JOIN at column 0
-  out = indentJoinContinuations(out, opts.tabWidth); // AND ... under ON by one indent
-
-  // 1b) SELECT list style
-  if (opts.commaBeforeColumn) {
-    out = selectListLeadingCommas(out); // leading commas in SELECT
-  }
-
-  // 2) Clause headers
-  out = compactWhereFirstPredicate(out); // WHERE 1 = 1
-  out = compactHavingFirstPredicate(out); // HAVING  MAX(...)
-
-  // 3) Readability
-  out = compactCaseWhenHeaders(out); // CASE WHEN on one line
-
-  // 4) Casing
+  // house-style passes (order matters)
+  // out = forceSemicolonBeforeWith(out);
   out = uppercaseFunctions(out);
   out = uppercaseDataTypes(out);
+  out = compactCaseWhenHeaders(out);
+  out = compactFromFirstTable(out);
+  out = unindentJoinBlock(out);
+  out = compactWhereFirstPredicate(out);
+  out = leftAlignJoins(out);
+  out = indentJoinContinuations(out, opts.tabWidth);
+  out = compactHavingFirstPredicate(out);
+  out = indentDerivedTables(out, opts.tabWidth ?? 4);
 
-  // 5) Function args collapse (e.g., ISNULL/CONVERT to one line)
-  if (opts.oneLineFunctionArgs) {
-    out = collapseFunctionArgsToSingleLine(out, ["ISNULL", "CONVERT"]);
-  }
-
-  // 6) Comments
-  if (opts.convertLineCommentsToBlock) {
-    out = convertLineComments(out);
-  }
-
-  // 7) Optional alignment last
-  if (opts.alignAs) {
-    out = alignAsInSelect(out);
-  }
+  if (opts.oneLineFunctionArgs) out = collapseCommonFunctionArgs(out);
+  if (opts.commaBeforeColumn) out = applyLeadingCommasToSelect(out);
+  if (opts.convertLineCommentsToBlock) out = convertLineComments(out);
+  if (opts.alignAs) out = alignAsInSelect(out);
 
   return out;
 }
@@ -383,4 +363,357 @@ function normalizeCteWith(text: string): string {
   // 2) Nuke extra blank lines immediately before a ;WITH
   text = text.replace(/\n{2,}(?=;WITH\b)/g, "\n");
   return text;
+}
+
+// --- helpers to scan safely (ignore strings/comments/brackets) ---
+function stripLineComments(s: string) {
+  return s.replace(/--.*$/gm, "");
+}
+function stripBlockComments(s: string) {
+  return s.replace(/\/\*[\s\S]*?\*\//g, "");
+}
+function isQuote(ch: string) {
+  return ch === "'";
+}
+function isOpenBracket(ch: string) {
+  return ch === "[";
+}
+function isCloseBracket(ch: string) {
+  return ch === "]";
+}
+
+// Net "(" - ")" on a single line, ignoring quotes/brackets
+function netParenDelta(line: string): number {
+  let d = 0,
+    inStr = false,
+    inBr = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inStr) {
+      if (c === "'" && line[i + 1] === "'") {
+        i++;
+        continue;
+      } // escaped ''
+      if (c === "'") inStr = false;
+      continue;
+    }
+    if (inBr) {
+      if (isCloseBracket(c)) inBr = false;
+      continue;
+    }
+    if (isQuote(c)) {
+      inStr = true;
+      continue;
+    }
+    if (isOpenBracket(c)) {
+      inBr = true;
+      continue;
+    }
+    if (c === "(") d++;
+    else if (c === ")") d--;
+  }
+  return d;
+}
+
+// Find [start, end) of SELECT list: after SELECT ... up to top-level FROM/INTO
+function findSelectListRanges(
+  sql: string
+): Array<{ start: number; end: number }> {
+  const src = stripBlockComments(sql); // comments can fool token scans
+  const ranges: Array<{ start: number; end: number }> = [];
+  const reSelect = /\bSELECT\b/gi;
+  let m: RegExpExecArray | null;
+  while ((m = reSelect.exec(src))) {
+    // start right after this SELECT
+    let i = m.index + m[0].length;
+    // skip TOP (...) or DISTINCT etc.
+    for (;;) {
+      const tail = src.slice(i);
+      const head =
+        tail.match(
+          /^\s+(TOP\b\s*\([^)]*\)|TOP\b\s+\d+|DISTINCT\b|ALL\b)/i
+        )?.[0] ?? "";
+      if (!head) break;
+      i += head.length;
+    }
+    let depth = 0,
+      inStr = false,
+      inBr = false;
+    let end = src.length;
+    for (let j = i; j < src.length; j++) {
+      const c = src[j],
+        n = src[j + 1];
+      if (inStr) {
+        if (c === "'" && n === "'") {
+          j++;
+          continue;
+        }
+        if (c === "'") inStr = false;
+        continue;
+      }
+      if (inBr) {
+        if (c === "]") inBr = false;
+        continue;
+      }
+      if (c === "'") {
+        inStr = true;
+        continue;
+      }
+      if (c === "[") {
+        inBr = true;
+        continue;
+      }
+      if (c === "(") depth++;
+      else if (c === ")") depth--;
+
+      if (depth === 0) {
+        // top-level FROM or INTO ends the select list
+        if (src.slice(j).match(/^(?:\s|\r?\n)+(FROM|INTO)\b/i)) {
+          end = j;
+          break;
+        }
+        // also guard against end of statement
+        if (src[j] === ";") {
+          end = j;
+          break;
+        }
+      }
+    }
+    ranges.push({ start: i, end });
+    reSelect.lastIndex = end; // continue after this SELECT list
+  }
+  return ranges;
+}
+
+// Leading commas only for top-level separators inside SELECT list
+export function applyLeadingCommasToSelect(sql: string): string {
+  const ranges = findSelectListRanges(sql);
+  if (!ranges.length) return sql;
+
+  const lines = sql.split(/\r?\n/);
+  // Map char index -> line index boundaries
+  const idxToLine: number[] = [];
+  let acc = 0;
+  for (let li = 0; li < lines.length; li++) {
+    const L = lines[li].length + 1; // +1 for \n
+    for (let k = 0; k < L; k++) idxToLine.push(li);
+    acc += L;
+  }
+  function indexToLine(i: number) {
+    return Math.min(idxToLine[i] ?? lines.length - 1, lines.length - 1);
+  }
+
+  for (const { start, end } of ranges) {
+    let li = indexToLine(start);
+    const lastLine = indexToLine(Math.max(end - 1, 0));
+    let depth = 0;
+    let carryComma = false;
+
+    for (; li <= lastLine; li++) {
+      // ignore comments for depth calc
+      const raw = lines[li];
+      const noLineCom = stripLineComments(raw);
+      const noCom = stripBlockComments(noLineCom);
+
+      // If we’re at top level, move trailing comma → leading on next line
+      if (depth === 0) {
+        const trailingComma = /,(?=\s*(--.*)?$)/.test(noCom);
+        if (trailingComma) {
+          // remove that trailing comma
+          lines[li] = raw.replace(/,(?=\s*(--.*)?$)/, "");
+          carryComma = true;
+        } else if (carryComma) {
+          // place a leading comma on the first non-empty, non-comment line
+          if (noCom.trim().length) {
+            lines[li] = lines[li].replace(/^(\s*)/, "$1,");
+            carryComma = false;
+          }
+        }
+      }
+
+      // update depth from this *original* (comment-stripped) line
+      depth += netParenDelta(noCom);
+    }
+  }
+  return lines.join("\n");
+}
+
+// Collapse args of common functions to a single line *inside their ( ... )*
+export function collapseCommonFunctionArgs(sql: string): string {
+  const fns = [
+    "ISNULL",
+    "COALESCE",
+    "CONVERT",
+    "TRY_CONVERT",
+    "CAST",
+    "DATEADD",
+    "DATEDIFF",
+    "DATENAME",
+    "FORMAT",
+  ];
+  const nameRe = new RegExp(`\\b(${fns.join("|")})\\s*\\(`, "gi");
+
+  let out = "";
+  let i = 0;
+  while (i < sql.length) {
+    nameRe.lastIndex = i;
+    const m = nameRe.exec(sql);
+    if (!m) {
+      out += sql.slice(i);
+      break;
+    }
+
+    const fnStart = m.index;
+    const openParen = nameRe.lastIndex - 1; // points at "("
+    // copy text before function
+    out += sql.slice(i, openParen);
+
+    // find the matching ')'
+    let j = openParen + 1,
+      depth = 1,
+      inStr = false,
+      inBr = false;
+    while (j < sql.length && depth > 0) {
+      const c = sql[j],
+        n = sql[j + 1];
+      if (inStr) {
+        if (c === "'" && n === "'") {
+          j += 2;
+          continue;
+        }
+        if (c === "'") {
+          inStr = false;
+          j++;
+          continue;
+        }
+        j++;
+        continue;
+      }
+      if (inBr) {
+        if (c === "]") inBr = false;
+        j++;
+        continue;
+      }
+      if (c === "'") {
+        inStr = true;
+        j++;
+        continue;
+      }
+      if (c === "[") {
+        inBr = true;
+        j++;
+        continue;
+      }
+      if (c === "(") {
+        depth++;
+        j++;
+        continue;
+      }
+      if (c === ")") {
+        depth--;
+        j++;
+        if (depth === 0) break;
+        continue;
+      }
+      j++;
+    }
+    const inner = sql.slice(openParen + 1, j - 0 /* j now at ')' */);
+
+    // compact: remove newlines, trim spaces around commas, normalize spaces
+    const compact = inner
+      .replace(/\/\*[\s\S]*?\*\//g, " ") // keep block comments spacing sane
+      .replace(/\s*--.*$/gm, " ") // drop line comments inside call
+      .replace(/\s*\r?\n\s*/g, " ") // kill newlines
+      .replace(/\s*,\s*/g, ", ") // commas like ", "
+      .replace(/\s+/g, " ") // collapse runs of spaces
+      .trim();
+
+    out += m[0].replace(/\s+$/, "") + compact + ")"; // function name + "(" + args + ")"
+    i = j + 1;
+  }
+  return out;
+}
+
+// Force ";WITH" (no blank line before)
+export function forceSemicolonBeforeWith(sql: string): string {
+  return sql
+    .replace(/\r?\n\s*;\s*\r?\n\s*WITH\b/gi, "\n;WITH")
+    .replace(/(^|\r?\n)\s*WITH\b/g, "\n;WITH"); // if someone forgot semicolon
+}
+
+function indentDerivedTables(sql: string, tabWidth: number): string {
+  const lines = sql.split(/\r?\n/);
+
+  const openRe = /^\s*(FROM|JOIN|CROSS\s+APPLY|OUTER\s+APPLY|APPLY)\b.*\(\s*$/i;
+  const closeRe = /^\s*\)\s*(?:AS\s+)?([A-Z0-9_#\[\]\."]+)?\s*;?\s*$/i; // captures alias if present
+  const aliasOnlyRe = /^\s*(?:AS\s+)?([A-Z0-9_#\[\]\."]+)\s*;?\s*$/i;
+
+  const space = (n: number) => " ".repeat(n);
+  const currentIndent = (s: string) => s.match(/^\s*/)?.[0].length ?? 0;
+
+  type Block = { baseIndent: number };
+  const stack: Block[] = [];
+
+  const out: string[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    let raw = lines[i];
+    let line = raw.replace(/\s+$/, ""); // trim end only
+
+    // CLOSE: align ')' with the opener and optionally pull alias from next line
+    if (stack.length && closeRe.test(line)) {
+      const { baseIndent } = stack.pop()!;
+      let aliasMatch = line.match(closeRe)?.[1];
+
+      // If no alias on this line, see if next line is purely an alias and pull it up.
+      if (!aliasMatch && i + 1 < lines.length) {
+        const next = lines[i + 1];
+        const m = next && next.match(aliasOnlyRe);
+        if (m) {
+          aliasMatch = m[1];
+          i += 1; // consume alias line
+        }
+      }
+
+      const rebuilt =
+        space(baseIndent) + ")" + (aliasMatch ? ` AS ${aliasMatch}` : "");
+      out.push(rebuilt);
+      i += 1;
+      continue;
+    }
+
+    // INSIDE a derived block → add one extra indent level
+    if (stack.length) {
+      // If the current line *opens* a new derived table, push after we re-emit
+      if (openRe.test(line)) {
+        const innerBase = currentIndent(line);
+        out.push(space(innerBase) + line.trim());
+        stack.push({ baseIndent: innerBase });
+        i += 1;
+        continue;
+      }
+
+      const { baseIndent } = stack[stack.length - 1];
+      // one extra level inside the derived table
+      const rebuilt = space(baseIndent + tabWidth) + line.trim();
+      out.push(rebuilt);
+      i += 1;
+      continue;
+    }
+
+    // OPEN: remember base indent (indent of this line) and push
+    if (openRe.test(line)) {
+      const baseIndent = currentIndent(line);
+      out.push(space(baseIndent) + line.trim());
+      stack.push({ baseIndent });
+      i += 1;
+      continue;
+    }
+
+    // default: pass through
+    out.push(line);
+    i += 1;
+  }
+  return out.join("\n");
 }

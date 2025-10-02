@@ -51,7 +51,7 @@ export function activate(context: vscode.ExtensionContext) {
         const msg = `Format error: ${err?.message ?? String(err)}`;
         channel.appendLine(msg);
         vscode.window.showErrorMessage(
-          'Better SQL Stylist: Failed to format document. See "SQL Stylist" output.'
+          'Better SQL Stylist: Failed to format document. See "Better SQL Stylist" output.'
         );
         return [];
       }
