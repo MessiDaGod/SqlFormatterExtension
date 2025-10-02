@@ -1,13 +1,13 @@
 {
-    "name": "sql-stylist",
+    "name": "better-sql-stylist",
     "repository": {
         "type": "git",
         "url": "https://github.com/MessiDaGod/SqlFormatterExtension"
     },
-    "displayName": "SQL Stylist (T-SQL Formatter)",
+    "displayName": "A Better SQL Stylist (T-SQL Formatter)",
     "description": "Opinionated T-SQL formatter matching ChatGPT's house style: uppercase keywords, clean indentation, optional AS alignment and block-comments.",
-    "version": "0.1.1",
-    "publisher": "joeshakely",
+    "version": "0.1.0",
+    "publisher": "shakely-consulting",
     "engines": {
         "vscode": "^1.85.0"
     },
@@ -64,6 +64,11 @@
                     "type": "boolean",
                     "default": true,
                     "description": "Collapse args of common functions (e.g., ISNULL/CONVERT) to a single line."
+                },
+                "sqlStylist.tightValuesTupleSpacing": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Remove spaces after commas inside simple VALUES tuples: ('Key', Value) -> ('Key',Value)."
                 }
             }
         },
@@ -95,7 +100,8 @@
         "compile": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --platform=node --external:vscode --format=cjs",
         "watch": "npm run compile -- --watch",
         "package": "vsce package",
-        "lint": "echo \"No lint configured\""
+        "lint": "echo \"No lint configured\"",
+        "ext:install": "node scripts/install.js"
     },
     "devDependencies": {
         "@types/node": "^20.0.0",

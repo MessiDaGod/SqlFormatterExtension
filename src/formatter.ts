@@ -8,16 +8,9 @@ export interface StylistOptions {
   linesBetweenQueries: number;
   convertLineCommentsToBlock: boolean;
   alignAs: boolean;
-}
-
-export interface StylistOptions {
-  keywordCase: KeywordCase;
-  tabWidth: number;
-  linesBetweenQueries: number;
-  convertLineCommentsToBlock: boolean;
-  alignAs: boolean;
-  commaBeforeColumn: boolean; // NEW
-  oneLineFunctionArgs: boolean; // NEW
+  commaBeforeColumn: boolean;
+  oneLineFunctionArgs: boolean;
+  tightValuesTupleSpacing?: boolean; // NEW
 }
 
 export function formatSql(input: string, opts: StylistOptions): string {
@@ -30,30 +23,44 @@ export function formatSql(input: string, opts: StylistOptions): string {
   });
 
   // 1) Structural reshaping
-  out = compactFromFirstTable(out); // FROM CommitPayments cp
-  out = fixSplitJoinNames(out); // avoid LEFT JOIN\nContract
+  out = compactFromFirstTable(out);
+  out = fixSplitJoinNames(out);
+  out = compactIntoTarget(out);
   out = leftAlignJoins(out); // JOIN at column 0
   out = indentJoinContinuations(out, opts.tabWidth); // AND ... under ON by one indent
+  out = alignApplyIndentation(out); // CROSS/OUTER APPLY aligned with FROM
 
   // 1b) SELECT list style
   if (opts.commaBeforeColumn) {
-    out = selectListLeadingCommas(out); // leading commas in SELECT
+    out = selectListLeadingCommas(out);
   }
 
   // 2) Clause headers
-  out = compactWhereFirstPredicate(out); // WHERE 1 = 1
-  out = compactHavingFirstPredicate(out); // HAVING  MAX(...)
+  out = compactWhereFirstPredicate(out);
+  out = compactHavingFirstPredicate(out);
 
   // 3) Readability
-  out = compactCaseWhenHeaders(out); // CASE WHEN on one line
+  out = compactCaseWhenHeaders(out);
 
   // 4) Casing
   out = uppercaseFunctions(out);
   out = uppercaseDataTypes(out);
 
-  // 5) Function args collapse (e.g., ISNULL/CONVERT to one line)
+  // 5) Function args collapse
   if (opts.oneLineFunctionArgs) {
-    out = collapseFunctionArgsToSingleLine(out, ["ISNULL", "CONVERT"]);
+    out = collapseFunctionArgsToSingleLine(out, [
+      "ISNULL",
+      "CONVERT",
+      "COALESCE",
+      "MIN",
+      "MAX",
+      "SUM",
+    ]);
+  }
+
+  // 5b) VALUES tuple spacing
+  if (opts.tightValuesTupleSpacing) {
+    out = tightenValuesTupleSpacing(out);
   }
 
   // 6) Comments
@@ -222,15 +229,44 @@ function unindentJoinBlock(text: string): string {
   return lines.join("\n");
 }
 
-/** Left-align JOIN lines (no indent before JOIN). */
+/** Left-align JOIN lines (but NOT APPLY; APPLY is handled by alignApplyIndentation). */
 function leftAlignJoins(text: string): string {
   const lines = text.split(/\r?\n/);
   const isJoin = (s: string) =>
-    /^\s*(LEFT|RIGHT|FULL|INNER|OUTER|CROSS)\s+JOIN\b/i.test(s) ||
-    /^\s*JOIN\b/i.test(s) ||
-    /^\s*(OUTER|CROSS)\s+APPLY\b/i.test(s);
+    /^\s*(LEFT|RIGHT|FULL|INNER)\s+JOIN\b/i.test(s) || /^\s*JOIN\b/i.test(s);
   for (let i = 0; i < lines.length; i++) {
     if (isJoin(lines[i])) lines[i] = lines[i].trimStart();
+  }
+  return lines.join("\n");
+}
+
+/** Inside a block, align CROSS/OUTER APPLY to the same indent as the nearest preceding FROM line. */
+function alignApplyIndentation(text: string): string {
+  const lines = text.split(/\r?\n/);
+  let currentFromIndent: string | null = null;
+  const fromRe = /^(\s*)FROM\b/i;
+  const applyRe = /^(\s*)(CROSS|OUTER)\s+APPLY\b/i;
+
+  for (let i = 0; i < lines.length; i++) {
+    const f = fromRe.exec(lines[i]);
+    if (f) {
+      currentFromIndent = f[1];
+      continue;
+    }
+
+    const a = applyRe.exec(lines[i]);
+    if (a && currentFromIndent !== null) {
+      lines[i] = currentFromIndent + lines[i].trimStart();
+      continue;
+    }
+    // reset when another clause starts (rough heuristic)
+    if (
+      /^\s*(WHERE|GROUP\s+BY|ORDER\s+BY|UNION\b|EXCEPT\b|INTERSECT\b)\b/i.test(
+        lines[i]
+      )
+    ) {
+      currentFromIndent = null;
+    }
   }
   return lines.join("\n");
 }
@@ -239,26 +275,17 @@ function leftAlignJoins(text: string): string {
 function indentJoinContinuations(text: string, tabWidth: number): string {
   const indent = " ".repeat(Math.max(0, tabWidth));
   const lines = text.split(/\r?\n/);
-
   const isJoin = (s: string) =>
-    /^\s*(LEFT|RIGHT|FULL|INNER|OUTER|CROSS)\s+JOIN\b/i.test(s) ||
-    /^\s*JOIN\b/i.test(s) ||
-    /^\s*(OUTER|CROSS)\s+APPLY\b/i.test(s);
-
+    /^\s*(LEFT|RIGHT|FULL|INNER)\s+JOIN\b/i.test(s) || /^\s*JOIN\b/i.test(s);
   const prevNonEmpty = (i: number) => {
     for (let k = i - 1; k >= 0; k--) if (lines[k].trim() !== "") return k;
     return -1;
   };
-
   for (let i = 0; i < lines.length; i++) {
     if (/^\s*AND\b/i.test(lines[i])) {
       const k = prevNonEmpty(i);
-      if (k >= 0) {
-        // If previous non-empty line is a JOIN or contains an ON-clause,
-        // indent this AND as a continuation of that JOIN.
-        if (isJoin(lines[k]) || /\b ON \b/i.test(lines[k])) {
-          lines[i] = indent + lines[i].trim();
-        }
+      if (k >= 0 && (isJoin(lines[k]) || /\b ON \b/i.test(lines[k]))) {
+        lines[i] = indent + lines[i].trim();
       }
     }
   }
@@ -348,4 +375,15 @@ function collapseFunctionArgsToSingleLine(text: string, fns: string[]): string {
     out += src[i++];
   }
   return out;
+}
+
+/** Keep the target on the same line as INTO (handles SELECT/INSERT/OUTPUT INTO). */
+function compactIntoTarget(text: string): string {
+  return text.replace(/\bINTO\s*\n\s*/gi, "INTO ");
+}
+
+/** Remove spaces after the comma inside simple VALUES tuples: ('Key', Value) -> ('Key',Value). */
+function tightenValuesTupleSpacing(text: string): string {
+  // Only affects tuples that begin with a string literal.
+  return text.replace(/\(\s*('[^']*')\s*,\s*/g, "($1,");
 }
