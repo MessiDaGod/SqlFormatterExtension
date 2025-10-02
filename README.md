@@ -36,9 +36,8 @@ npm run compile
 
 ```json
 {
-  "editor.defaultFormatter": "joeshakely.sql-stylist",
   "[sql]": {
-    "editor.defaultFormatter": "joeshakely.sql-stylist",
+    "editor.defaultFormatter": "shakely-consulting.better-sql-stylist",
     "editor.formatOnSave": true
   },
   "sqlStylist.convertLineCommentsToBlock": true,

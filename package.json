@@ -6,7 +6,7 @@
     },
     "displayName": "A Better SQL Stylist (T-SQL Formatter)",
     "description": "Opinionated T-SQL formatter matching ChatGPT's house style: uppercase keywords, clean indentation, optional AS alignment and block-comments.",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "publisher": "shakely-consulting",
     "engines": {
         "vscode": "^1.85.0"
@@ -69,6 +69,11 @@
                     "type": "boolean",
                     "default": true,
                     "description": "Remove spaces after commas inside simple VALUES tuples: ('Key', Value) -> ('Key',Value)."
+                },
+                "sqlStylist.forceSemicolonBeforeWith": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Force ';WITH' at the start of any CTE line and remove blank lines before it."
                 }
             }
         },

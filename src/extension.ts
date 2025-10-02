@@ -16,8 +16,12 @@ function optionsFromConfig(cfg: vscode.WorkspaceConfiguration): StylistOptions {
       true
     ),
     alignAs: cfg.get<boolean>("alignAs", false),
-    commaBeforeColumn: cfg.get<boolean>("commaBeforeColumn", false), // NEW
-    oneLineFunctionArgs: cfg.get<boolean>("oneLineFunctionArgs", true), // NEW
+    commaBeforeColumn: cfg.get<boolean>("commaBeforeColumn", false),
+    oneLineFunctionArgs: cfg.get<boolean>("oneLineFunctionArgs", true),
+    forceSemicolonBeforeWith: cfg.get<boolean>(
+      "forceSemicolonBeforeWith",
+      true
+    ),
   };
 }
 

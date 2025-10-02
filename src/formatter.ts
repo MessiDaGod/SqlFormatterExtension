@@ -10,7 +10,8 @@ export interface StylistOptions {
   alignAs: boolean;
   commaBeforeColumn: boolean;
   oneLineFunctionArgs: boolean;
-  tightValuesTupleSpacing?: boolean; // NEW
+  tightValuesTupleSpacing?: boolean;
+  forceSemicolonBeforeWith?: boolean;
 }
 
 export function formatSql(input: string, opts: StylistOptions): string {
@@ -29,7 +30,10 @@ export function formatSql(input: string, opts: StylistOptions): string {
   out = leftAlignJoins(out); // JOIN at column 0
   out = indentJoinContinuations(out, opts.tabWidth); // AND ... under ON by one indent
   out = alignApplyIndentation(out); // CROSS/OUTER APPLY aligned with FROM
-
+  // 1c) CTE header normalization
+  if (opts.forceSemicolonBeforeWith) {
+    out = normalizeCteWith(out); // <- makes  ;WITH  and removes blank line before it
+  }
   // 1b) SELECT list style
   if (opts.commaBeforeColumn) {
     out = selectListLeadingCommas(out);
@@ -386,4 +390,14 @@ function compactIntoTarget(text: string): string {
 function tightenValuesTupleSpacing(text: string): string {
   // Only affects tuples that begin with a string literal.
   return text.replace(/\(\s*('[^']*')\s*,\s*/g, "($1,");
+}
+
+/** Force ';WITH' at start-of-line CTEs and remove blank lines before it. */
+function normalizeCteWith(text: string): string {
+  // 1) Any line that *starts* with WITH (optionally with stray spaces/semicolon) -> ';WITH'
+  //    Anchored to line start so we won't touch table hints like "... WITH (NOLOCK)".
+  text = text.replace(/^\s*;?\s*WITH\b/gim, ";WITH");
+  // 2) Nuke extra blank lines immediately before a ;WITH
+  text = text.replace(/\n{2,}(?=;WITH\b)/g, "\n");
+  return text;
 }
