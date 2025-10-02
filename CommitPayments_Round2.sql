@@ -62,8 +62,7 @@ SELECT
             ELSE v.DDATELIABINSUR
         END
     END                         AS VendorLiabInsurDate
-FROM
-    CommitPayments cp
+FROM CommitPayments cp
     JOIN detail d ON cp.hdetail = d.hmy
     AND d.bRet = 0
     AND ISNULL(d.hchkorchg, 0) = 0
@@ -99,8 +98,7 @@ WHERE
                 WHEN 1 THEN x.hMy
                 ELSE - 1
             END
-        FROM
-            trans x
+        FROM trans x
             LEFT JOIN wf_tran_header wf ON (
                 wf.hRecord = x.hMy
                 AND wf.iType = 30

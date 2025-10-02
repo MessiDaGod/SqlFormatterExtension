@@ -24,6 +24,8 @@ export function formatSql(input: string, opts: StylistOptions): string {
   out = uppercaseDataTypes(out); // DATETIME/DATE/DECIMAL/NUMERIC/etc.
   out = compactCaseWhenHeaders(out); // "CASE\nWHEN" -> "CASE WHEN" where safe
   out = compactFromFirstTable(out);
+  out = unindentJoinBlock(out);
+  out = compactWhereFirstPredicate(out);
 
   if (opts.convertLineCommentsToBlock) {
     out = convertLineComments(out);
@@ -152,4 +154,43 @@ function compactFromFirstTable(text: string): string {
       return `FROM ${grp}`;
     }
   );
+}
+
+/** Unindent JOIN lines and their immediate AND-continuations. */
+function unindentJoinBlock(text: string): string {
+  const lines = text.split(/\r?\n/);
+  const isJoin = (s: string) =>
+    /^\s*(LEFT|RIGHT|FULL|INNER|CROSS)\s+JOIN\b/i.test(s) ||
+    /^\s*JOIN\b/i.test(s) ||
+    /^\s*(OUTER|CROSS)\s+APPLY\b/i.test(s);
+
+  const isAnd = (s: string) => /^\s*AND\b/i.test(s);
+
+  const prevNonEmptyIndex = (i: number) => {
+    for (let k = i - 1; k >= 0; k--) {
+      if (lines[k].trim() !== "") return k;
+    }
+    return -1;
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    if (isJoin(lines[i])) {
+      lines[i] = lines[i].trimStart();
+      continue;
+    }
+    if (isAnd(lines[i])) {
+      const k = prevNonEmptyIndex(i);
+      if (
+        k >= 0 &&
+        (/\bJOIN\b/i.test(lines[k]) || /\b ON \b/i.test(lines[k]))
+      ) {
+        lines[i] = lines[i].trimStart();
+      }
+    }
+  }
+  return lines.join("\n");
+}
+/** Keep the first predicate on the same line as WHERE. */
+function compactWhereFirstPredicate(text: string): string {
+  return text.replace(/\bWHERE\s*\n\s*/gi, "WHERE ");
 }
