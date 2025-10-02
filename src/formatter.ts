@@ -24,47 +24,30 @@ export function formatSql(input: string, opts: StylistOptions): string {
   });
 
   // 1) Structural reshaping
-  out = compactFromFirstTable(out);
-  out = fixSplitJoinNames(out);
-  out = compactIntoTarget(out);
+  out = compactFromFirstTable(out); // FROM CommitPayments cp
+  out = fixSplitJoinNames(out); // avoid LEFT JOIN\nContract
   out = leftAlignJoins(out); // JOIN at column 0
   out = indentJoinContinuations(out, opts.tabWidth); // AND ... under ON by one indent
-  out = alignApplyIndentation(out); // CROSS/OUTER APPLY aligned with FROM
-  // 1c) CTE header normalization
-  if (opts.forceSemicolonBeforeWith) {
-    out = normalizeCteWith(out); // <- makes  ;WITH  and removes blank line before it
-  }
+
   // 1b) SELECT list style
   if (opts.commaBeforeColumn) {
-    out = selectListLeadingCommas(out);
+    out = selectListLeadingCommas(out); // leading commas in SELECT
   }
 
   // 2) Clause headers
-  out = compactWhereFirstPredicate(out);
-  out = compactHavingFirstPredicate(out);
+  out = compactWhereFirstPredicate(out); // WHERE 1 = 1
+  out = compactHavingFirstPredicate(out); // HAVING  MAX(...)
 
   // 3) Readability
-  out = compactCaseWhenHeaders(out);
+  out = compactCaseWhenHeaders(out); // CASE WHEN on one line
 
   // 4) Casing
   out = uppercaseFunctions(out);
   out = uppercaseDataTypes(out);
 
-  // 5) Function args collapse
+  // 5) Function args collapse (e.g., ISNULL/CONVERT to one line)
   if (opts.oneLineFunctionArgs) {
-    out = collapseFunctionArgsToSingleLine(out, [
-      "ISNULL",
-      "CONVERT",
-      "COALESCE",
-      "MIN",
-      "MAX",
-      "SUM",
-    ]);
-  }
-
-  // 5b) VALUES tuple spacing
-  if (opts.tightValuesTupleSpacing) {
-    out = tightenValuesTupleSpacing(out);
+    out = collapseFunctionArgsToSingleLine(out, ["ISNULL", "CONVERT"]);
   }
 
   // 6) Comments

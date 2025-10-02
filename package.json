@@ -21,7 +21,7 @@
     "main": "./dist/extension.js",
     "contributes": {
         "configuration": {
-            "title": "SQL Stylist",
+            "title": "Better SQL Stylist",
             "properties": {
                 "sqlStylist.keywordCase": {
                     "type": "string",
@@ -80,8 +80,8 @@
         "commands": [
             {
                 "command": "sqlStylist.formatSelectionOrDocument",
-                "title": "SQL Stylist: Format SQL (Selection or Document)",
-                "category": "SQL Stylist"
+                "title": "Better SQL Stylist: Format SQL (Selection or Document)",
+                "category": "Better SQL Stylist"
             }
         ],
         "menus": {

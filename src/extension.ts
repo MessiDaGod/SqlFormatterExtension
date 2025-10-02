@@ -26,7 +26,7 @@ function optionsFromConfig(cfg: vscode.WorkspaceConfiguration): StylistOptions {
 }
 
 export function activate(context: vscode.ExtensionContext) {
-  channel = vscode.window.createOutputChannel("SQL Stylist");
+  channel = vscode.window.createOutputChannel("Better SQL Stylist");
   channel.appendLine("SQL Stylist activated.");
 
   const provider: vscode.DocumentFormattingEditProvider = {
@@ -51,7 +51,7 @@ export function activate(context: vscode.ExtensionContext) {
         const msg = `Format error: ${err?.message ?? String(err)}`;
         channel.appendLine(msg);
         vscode.window.showErrorMessage(
-          'SQL Stylist: Failed to format document. See "SQL Stylist" output.'
+          'Better SQL Stylist: Failed to format document. See "SQL Stylist" output.'
         );
         return [];
       }
