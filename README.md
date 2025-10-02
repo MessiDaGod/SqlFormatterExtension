@@ -4,6 +4,17 @@ An opinionated formatter that gets your `.sql` files to look like the way I usua
 
 ## Quick Start
 
+1. **Install from Marketplace**
+   👉 [SQL Stylist on Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=joeshakely.sql-stylist&ssr=false#overview)
+
+Or, if you prefer, clone and build locally:
+
+```bash
+mkdir sql-stylist && cd sql-stylist
+npm i
+npm run compile
+```
+
 1. **Create the project**
 
 ```bash
@@ -25,9 +36,9 @@ npm run compile
 
 ```json
 {
-  "editor.defaultFormatter": "your-name.sql-stylist",
+  "editor.defaultFormatter": "joeshakely.sql-stylist",
   "[sql]": {
-    "editor.defaultFormatter": "your-name.sql-stylist",
+    "editor.defaultFormatter": "joeshakely.sql-stylist",
     "editor.formatOnSave": true
   },
   "sqlStylist.convertLineCommentsToBlock": true,
@@ -55,6 +66,18 @@ npm run package
 - Uses [`sql-formatter`](https://www.npmjs.com/package/sql-formatter) under the hood with the `transactsql` dialect.
 - `alignAs` is a simple text pass that works best when `sql-formatter` has put one select item per line.
 - Comment conversion only targets **comment-only** lines. Inline `--` after code are left as-is.
+
+## Features
+
+- UPPERCASE SQL keywords
+- Optional AS alignment in SELECT lists
+- Block‑style comment conversion
+- JOIN alignment and indentation rules
+- WHERE / HAVING first predicate kept inline
+
+## License
+
+MIT © Joe Shakely
 
 ## Dev Tips
 

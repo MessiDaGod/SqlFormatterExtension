@@ -6,7 +6,7 @@
     },
     "displayName": "SQL Stylist (T-SQL Formatter)",
     "description": "Opinionated T-SQL formatter matching ChatGPT's house style: uppercase keywords, clean indentation, optional AS alignment and block-comments.",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "publisher": "joeshakely",
     "engines": {
         "vscode": "^1.85.0"
@@ -16,8 +16,7 @@
     ],
     "activationEvents": [
         "onLanguage:sql",
-        "onLanguage:plaintext",
-        "onCommand:sqlStylist.formatSelectionOrDocument"
+        "onLanguage:plaintext"
     ],
     "main": "./dist/extension.js",
     "contributes": {
@@ -55,6 +54,16 @@
                     "type": "boolean",
                     "default": false,
                     "description": "Align `AS` in SELECT lists (naive; best for simple SELECT lists)."
+                },
+                "sqlStylist.commaBeforeColumn": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Use leading commas in SELECT lists (comma before column)."
+                },
+                "sqlStylist.oneLineFunctionArgs": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Collapse args of common functions (e.g., ISNULL/CONVERT) to a single line."
                 }
             }
         },

@@ -10,7 +10,18 @@ export interface StylistOptions {
   alignAs: boolean;
 }
 
+export interface StylistOptions {
+  keywordCase: KeywordCase;
+  tabWidth: number;
+  linesBetweenQueries: number;
+  convertLineCommentsToBlock: boolean;
+  alignAs: boolean;
+  commaBeforeColumn: boolean; // NEW
+  oneLineFunctionArgs: boolean; // NEW
+}
+
 export function formatSql(input: string, opts: StylistOptions): string {
+  // 0) Base pass
   let out = format(input, {
     language: "transactsql",
     keywordCase: opts.keywordCase,
@@ -18,19 +29,39 @@ export function formatSql(input: string, opts: StylistOptions): string {
     linesBetweenQueries: opts.linesBetweenQueries,
   });
 
-  // House-style post passes
-  out = fixSplitJoinNames(out); // e.g., "LEFT JOIN\nCONTRACT" -> "LEFT JOIN CONTRACT"
-  out = uppercaseFunctions(out); // MAX/MIN/ISNULL/GETDATE/CONVERT/CAST/etc.
-  out = uppercaseDataTypes(out); // DATETIME/DATE/DECIMAL/NUMERIC/etc.
-  out = compactCaseWhenHeaders(out); // "CASE\nWHEN" -> "CASE WHEN" where safe
-  out = compactFromFirstTable(out);
-  out = unindentJoinBlock(out);
-  out = compactWhereFirstPredicate(out);
+  // 1) Structural reshaping
+  out = compactFromFirstTable(out); // FROM CommitPayments cp
+  out = fixSplitJoinNames(out); // avoid LEFT JOIN\nContract
+  out = leftAlignJoins(out); // JOIN at column 0
+  out = indentJoinContinuations(out, opts.tabWidth); // AND ... under ON by one indent
 
+  // 1b) SELECT list style
+  if (opts.commaBeforeColumn) {
+    out = selectListLeadingCommas(out); // leading commas in SELECT
+  }
+
+  // 2) Clause headers
+  out = compactWhereFirstPredicate(out); // WHERE 1 = 1
+  out = compactHavingFirstPredicate(out); // HAVING  MAX(...)
+
+  // 3) Readability
+  out = compactCaseWhenHeaders(out); // CASE WHEN on one line
+
+  // 4) Casing
+  out = uppercaseFunctions(out);
+  out = uppercaseDataTypes(out);
+
+  // 5) Function args collapse (e.g., ISNULL/CONVERT to one line)
+  if (opts.oneLineFunctionArgs) {
+    out = collapseFunctionArgsToSingleLine(out, ["ISNULL", "CONVERT"]);
+  }
+
+  // 6) Comments
   if (opts.convertLineCommentsToBlock) {
     out = convertLineComments(out);
   }
 
+  // 7) Optional alignment last
   if (opts.alignAs) {
     out = alignAsInSelect(out);
   }
@@ -190,7 +221,131 @@ function unindentJoinBlock(text: string): string {
   }
   return lines.join("\n");
 }
-/** Keep the first predicate on the same line as WHERE. */
+
+/** Left-align JOIN lines (no indent before JOIN). */
+function leftAlignJoins(text: string): string {
+  const lines = text.split(/\r?\n/);
+  const isJoin = (s: string) =>
+    /^\s*(LEFT|RIGHT|FULL|INNER|OUTER|CROSS)\s+JOIN\b/i.test(s) ||
+    /^\s*JOIN\b/i.test(s) ||
+    /^\s*(OUTER|CROSS)\s+APPLY\b/i.test(s);
+  for (let i = 0; i < lines.length; i++) {
+    if (isJoin(lines[i])) lines[i] = lines[i].trimStart();
+  }
+  return lines.join("\n");
+}
+
+/** Indent AND-continuations that belong to a JOIN ... ON by exactly one indent. */
+function indentJoinContinuations(text: string, tabWidth: number): string {
+  const indent = " ".repeat(Math.max(0, tabWidth));
+  const lines = text.split(/\r?\n/);
+
+  const isJoin = (s: string) =>
+    /^\s*(LEFT|RIGHT|FULL|INNER|OUTER|CROSS)\s+JOIN\b/i.test(s) ||
+    /^\s*JOIN\b/i.test(s) ||
+    /^\s*(OUTER|CROSS)\s+APPLY\b/i.test(s);
+
+  const prevNonEmpty = (i: number) => {
+    for (let k = i - 1; k >= 0; k--) if (lines[k].trim() !== "") return k;
+    return -1;
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    if (/^\s*AND\b/i.test(lines[i])) {
+      const k = prevNonEmpty(i);
+      if (k >= 0) {
+        // If previous non-empty line is a JOIN or contains an ON-clause,
+        // indent this AND as a continuation of that JOIN.
+        if (isJoin(lines[k]) || /\b ON \b/i.test(lines[k])) {
+          lines[i] = indent + lines[i].trim();
+        }
+      }
+    }
+  }
+  return lines.join("\n");
+}
+
+/** Keep the first predicate on the same line as WHERE (single space). */
 function compactWhereFirstPredicate(text: string): string {
   return text.replace(/\bWHERE\s*\n\s*/gi, "WHERE ");
+}
+
+/** Keep the first predicate on the same line as HAVING (two spaces after HAVING). */
+function compactHavingFirstPredicate(text: string): string {
+  return text.replace(/\bHAVING\s*\n\s*/gi, "HAVING  ");
+}
+
+/** Convert SELECT list to leading-commas style. */
+function selectListLeadingCommas(text: string): string {
+  return text.replace(/\bSELECT([\s\S]*?)\bFROM\b/gi, (m, body) => {
+    const lines = body.split(/\r?\n/);
+
+    // Clean up trailing commas and any existing leading commas/spaces.
+    const cleaned = lines.map(
+      (l: string) =>
+        l
+          .replace(/,\s*$/, "") // remove trailing comma at end
+          .replace(/^\s*,\s*/, "") // remove existing leading comma
+          .replace(/\s+$/, "") // trim right spaces
+    );
+
+    // Rebuild with leading commas for items after the first non-empty line
+    const out: string[] = [];
+    let seenFirst = false;
+    for (const l of cleaned) {
+      if (l.trim() === "") {
+        out.push(l);
+        continue;
+      }
+      if (!seenFirst) {
+        out.push(l);
+        seenFirst = true;
+      } else {
+        out.push("," + l.trimStart());
+      } // leading comma, no extra space
+    }
+    return "SELECT" + out.join("\n") + "\nFROM";
+  });
+}
+
+/** Collapse argument lists of given functions to a single line (handles nesting). */
+function collapseFunctionArgsToSingleLine(text: string, fns: string[]): string {
+  const upperSet = new Set(fns.map((f) => f.toUpperCase()));
+  const isIdent = (c: string) => /[A-Za-z0-9_]/.test(c);
+  const src = text;
+  let i = 0;
+  let out = "";
+
+  while (i < src.length) {
+    if (/[A-Za-z_]/.test(src[i])) {
+      let j = i;
+      while (j < src.length && isIdent(src[j])) j++;
+      const name = src.slice(i, j).toUpperCase();
+
+      let k = j;
+      while (k < src.length && /\s/.test(src[k])) k++;
+
+      if (upperSet.has(name) && src[k] === "(") {
+        // capture balanced parentheses
+        let depth = 0,
+          p = k;
+        do {
+          const ch = src[p++];
+          if (ch === "(") depth++;
+          else if (ch === ")") depth--;
+        } while (p <= src.length && depth > 0);
+
+        const inside = src
+          .slice(k + 1, p - 1)
+          .replace(/\s*\n\s*/g, " ")
+          .replace(/\s{2,}/g, " ");
+
+        out += src.slice(i, k) + "(" + inside + ")";
+        i = p;
+        continue;
+      }
+    }
+    out += src[i++];
+  }
+  return out;
 }
