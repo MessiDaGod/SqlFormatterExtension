@@ -550,6 +550,12 @@ export function collapseCommonFunctionArgs(sql: string): string {
     "DATEDIFF",
     "DATENAME",
     "FORMAT",
+    "OBJECT_ID",
+    "OBJECT_NAME",
+    "OBJECTPROPERTY",
+    "OBJECTPROPERTYEX",
+    "DB_ID",
+    "DB_NAME",
   ];
   const nameRe = new RegExp(`\\b(${fns.join("|")})\\s*\\(`, "gi");
 
