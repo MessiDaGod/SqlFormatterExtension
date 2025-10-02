@@ -106,7 +106,7 @@
         "watch": "npm run compile -- --watch",
         "package": "vsce package",
         "lint": "echo \"No lint configured\"",
-        "ext:install": "node scripts/install.js"
+        "ext:install": "node install.js"
     },
     "devDependencies": {
         "@types/node": "^20.0.0",

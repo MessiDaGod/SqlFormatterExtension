@@ -16,18 +16,12 @@ function optionsFromConfig(cfg: vscode.WorkspaceConfiguration): StylistOptions {
       true
     ),
     alignAs: cfg.get<boolean>("alignAs", false),
-    commaBeforeColumn: cfg.get<boolean>("commaBeforeColumn", false),
-    oneLineFunctionArgs: cfg.get<boolean>("oneLineFunctionArgs", true),
-    forceSemicolonBeforeWith: cfg.get<boolean>(
-      "forceSemicolonBeforeWith",
-      true
-    ),
   };
 }
 
 export function activate(context: vscode.ExtensionContext) {
   channel = vscode.window.createOutputChannel("Better SQL Stylist");
-  channel.appendLine("SQL Stylist activated.");
+  channel.appendLine("Better SQL Stylist activated.");
 
   const provider: vscode.DocumentFormattingEditProvider = {
     provideDocumentFormattingEdits(document) {
@@ -36,9 +30,20 @@ export function activate(context: vscode.ExtensionContext) {
       const fullRange = new vscode.Range(start, end);
       const text = document.getText();
 
-      const options = optionsFromConfig(
-        vscode.workspace.getConfiguration("sqlStylist")
-      );
+      const cfg = vscode.workspace.getConfiguration("sqlStylist");
+      const options: StylistOptions = {
+        keywordCase: cfg.get<"upper" | "lower" | "preserve">(
+          "keywordCase",
+          "upper"
+        ),
+        tabWidth: cfg.get<number>("tabWidth", 4),
+        linesBetweenQueries: cfg.get<number>("linesBetweenQueries", 2),
+        convertLineCommentsToBlock: cfg.get<boolean>(
+          "convertLineCommentsToBlock",
+          true
+        ),
+        alignAs: cfg.get<boolean>("alignAs", false),
+      };
 
       try {
         const formatted = formatSql(text, options);
@@ -51,7 +56,7 @@ export function activate(context: vscode.ExtensionContext) {
         const msg = `Format error: ${err?.message ?? String(err)}`;
         channel.appendLine(msg);
         vscode.window.showErrorMessage(
-          'Better SQL Stylist: Failed to format document. See "SQL Stylist" output.'
+          'Better SQL Stylist: Failed to format document. See "Better SQL Stylist" output.'
         );
         return [];
       }

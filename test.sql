@@ -140,4 +140,4 @@ GROUP BY
     ISNULL(cmret.s2ndVendor, ISNULL(cmnoret.s2ndvendor, '')),
     ISNULL(cmret.h2ndVendor, ISNULL(cmnoret.h2ndVendor, 0))
 HAVING
-    MAX(ISNULL(b.bInactive, 0)) = 0
+    MAX(ISNULL(b.bInactive, 0)) = 0;
