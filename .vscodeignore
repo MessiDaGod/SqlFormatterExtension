@@ -1,6 +1,5 @@
-.vscode /**
-**/*.ts
-**/*.map
-src/**
-tsconfig.json
-.eslintrc.*
+**/*
+
+!dist/**
+!README.md
+!package.json

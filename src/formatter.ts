@@ -1,5 +1,7 @@
+// src/formatter.ts
 import { format } from "sql-formatter";
-
+import * as vscode from "vscode";
+import { log } from "./log";
 export type KeywordCase = "upper" | "lower" | "preserve";
 
 export interface StylistOptions {
@@ -15,6 +17,7 @@ export interface StylistOptions {
 }
 
 export function formatSql(input: string, opts: StylistOptions): string {
+  log("Formatting through house!");
   let out = format(input, {
     language: "transactsql",
     keywordCase: opts.keywordCase,
@@ -23,7 +26,7 @@ export function formatSql(input: string, opts: StylistOptions): string {
   });
 
   // house-style passes (order matters)
-  // out = forceSemicolonBeforeWith(out);
+  out = forceSemicolonBeforeWith(out);
   out = uppercaseFunctions(out);
   out = uppercaseDataTypes(out);
   out = compactCaseWhenHeaders(out);
@@ -39,6 +42,40 @@ export function formatSql(input: string, opts: StylistOptions): string {
   if (opts.commaBeforeColumn) out = applyLeadingCommasToSelect(out);
   if (opts.convertLineCommentsToBlock) out = convertLineComments(out);
   if (opts.alignAs) out = alignAsInSelect(out);
+
+  return out;
+}
+
+export function lightHousePostProcess(
+  sql: string,
+  opts: StylistOptions
+): string {
+  const channel = vscode.window.createOutputChannel("Better SQL Stylist");
+  let out = sql;
+  // safe, visual-only tweaks
+  // out = uppercaseFunctions(out);
+  // out = uppercaseDataTypes(out);
+  // out = compactCaseWhenHeaders(out);
+  // out = compactWhereFirstPredicate(out);
+  // out = compactHavingFirstPredicate(out);
+  // out = compactIntoTarget(out);
+  // out = leftAlignJoins(out);
+  // out = indentJoinContinuations(out, opts.tabWidth);
+
+  // // FIX: indent “SELECT * FROM (SELECT …) x” properly (works even when the "(" is on same line)
+  // out = indentDerivedTablesSmart(out, opts.tabWidth);
+
+  // // FIX: normalize two-line IF OBJECT_ID(...) / DROP TABLE ... blocks
+  // out = normalizeIfDropBlocks(out);
+
+  // if (opts.oneLineFunctionArgs) out = collapseCommonFunctionArgs(out);
+  // if (opts.commaBeforeColumn) out = applyLeadingCommasToSelect(out);
+  // if (opts.convertLineCommentsToBlock) out = convertLineComments(out);
+
+  if (opts.alignAs) {
+    log("Aligning AS Statements.");
+    out = alignAsInSelect(out);
+  }
 
   return out;
 }
@@ -722,4 +759,75 @@ function indentDerivedTables(sql: string, tabWidth: number): string {
     i += 1;
   }
   return out.join("\n");
+}
+
+/** Normalize:
+ * IF OBJECT_ID('X') IS NOT NULL
+ * DROP TABLE [X];
+ * (remove blank lines and ensure single semicolon)
+ */
+function normalizeIfDropBlocks(text: string): string {
+  // collapse extra blanks and enforce two-line pattern + trailing semicolon
+  return text.replace(
+    /(IF\s+OBJECT_ID\([^\n]+?\)\s+IS\s+NOT\s+NULL)[\s;]*\r?\n+\s*(DROP\s+TABLE\s+\[[^\]\n]+\])\s*;?/gi,
+    (_m, ifPart, dropPart) =>
+      `${String(ifPart).trim()}\n${String(dropPart).trim()};`
+  );
+}
+
+/** Derived-table indent that also handles "FROM ( SELECT ..." on the SAME line. */
+function indentDerivedTablesSmart(sql: string, tabWidth: number): string {
+  const lines = sql.split(/\r?\n/);
+  const space = (n: number) => " ".repeat(Math.max(0, n));
+  const getIndent = (s: string) => s.match(/^\s*/)?.[0].length ?? 0;
+
+  type Block = { baseIndent: number; parenDepth: number };
+  const stack: Block[] = [];
+  let globalDepth = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    const noLine = stripLineComments(raw);
+    const noCom = stripBlockComments(noLine);
+    const indent = getIndent(raw);
+
+    // Does this line begin a FROM/JOIN/APPLY and increase paren depth (i.e., FROM ( ... ) ) ?
+    const opensContext =
+      /\b(FROM|JOIN|CROSS\s+APPLY|OUTER\s+APPLY|APPLY)\b/i.test(noCom);
+    const delta = netParenDelta(noCom);
+    const depthBefore = globalDepth;
+    const depthAfter = depthBefore + delta;
+
+    // Start a derived-table block if we see a FROM/JOIN/APPLY and net "(" opened on this line
+    if (opensContext && delta > 0) {
+      stack.push({ baseIndent: indent, parenDepth: depthBefore + 1 });
+      lines[i] = raw.trimEnd(); // keep original indent / text
+      globalDepth = depthAfter;
+      continue;
+    }
+
+    if (stack.length) {
+      const top = stack[stack.length - 1];
+
+      // If this line is a closing ) [AS alias] — outdent to base indent
+      if (
+        depthAfter <= top.parenDepth - 1 &&
+        /\)\s*(AS\s+\S+)?\s*;?\s*$/i.test(noCom.trim())
+      ) {
+        lines[i] = space(top.baseIndent) + noCom.trim();
+        stack.pop();
+        globalDepth = depthAfter;
+        continue;
+      }
+
+      // Otherwise indent one level more than the opener
+      lines[i] = space(top.baseIndent + tabWidth) + raw.trim();
+      globalDepth = depthAfter;
+      continue;
+    }
+
+    globalDepth = depthAfter;
+  }
+
+  return lines.join("\n");
 }
