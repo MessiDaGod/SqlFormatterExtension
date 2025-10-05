@@ -164,7 +164,7 @@ IF OBJECT_ID('Labeled14a053ff-f900-4bc6-860f-2bd1c1a526c2') IS NULL
 		,[MonthIdx] BIGINT NULL
 		,[MonthLabel] VARCHAR(8) NULL
 		,[AmountPerMonth] FLOAT NULL
-		,[IsFreeRent] BIT NULL CONSTRAINT [PK_Labeled14a053ff-f900-4bc6-860f-2bd1c1a526c2] PRIMARY KEY NONCLUSTERED ([Id] ASC);WITH (
+		,[IsFreeRent] BIT NULL CONSTRAINT [PK_Labeled14a053ff-f900-4bc6-860f-2bd1c1a526c2] PRIMARY KEY NONCLUSTERED ([Id] ASC) WITH (
 			PAD_INDEX = OFF
 			,STATISTICS_NORECOMPUTE = OFF
 			,IGNORE_DUP_KEY = OFF
@@ -1325,35 +1325,35 @@ SELECT ROW_NUMBER() OVER (
 			,r.TenantId
 			,IsFreeRent ASC
 			,r.ChargeCodeId
-		) rn
+		)                                   AS rn
 	,r.*
-	,rtrim(p.scode) PropCode
-	,p.saddr1 PropName
-	,rtrim(t.sCode) TenantCode
-	,format(t.dtLeaseFrom, 'MM/dd/yyyy') FromFormat
-	,format(t.dtLeaseTo, 'MM/dd/yyyy') ToFormat
-	,CONVERT(VARCHAR, t.dtMoveOut, 101) dtMoveOut
-	,t.sfirstname + ' ' + t.slastname TenantName
-	,ts.[STATUS] 'Status'
-	,rtrim(u.scode) unitcode
-	,RTRIM(ad.saddr1) UnitAddress
-	,CONVERT(VARCHAR, t.dtMoveOut, 101) MoveOutDate
+	,rtrim(p.scode)                      AS PropCode
+	,p.saddr1                            AS PropName
+	,rtrim(t.sCode)                      AS TenantCode
+	,format(t.dtLeaseFrom, 'MM/dd/yyyy') AS FromFormat
+	,format(t.dtLeaseTo, 'MM/dd/yyyy')   AS ToFormat
+	,CONVERT(VARCHAR, t.dtMoveOut, 101)  AS dtMoveOut
+	,t.sfirstname + ' ' + t.slastname    AS TenantName
+	,ts.[STATUS]                         AS 'Status'
+	,rtrim(u.scode)                      AS unitcode
+	,RTRIM(ad.saddr1)                    AS UnitAddress
+	,CONVERT(VARCHAR, t.dtMoveOut, 101)  AS MoveOutDate
 	,CASE
 		WHEN r.IsFreeRent = 1
 			THEN 'Free Rent'
 		ELSE ct.sName
-		END AS ChargeName
+		END                                 AS ChargeName
 	,'SCREEN' OutputType
 	,u.hMy UnitId
 	,1 Total
-	,HasRenew = CASE
+	,CASE
 		WHEN lh.Id IS NOT NULL
 			THEN 'Yes'
 		ELSE ''
-		END
-	,lh.Id lhIds
-	,pr.hmy ProspectId
-	,COALESCE(prevFree.FreeAmt, 0) PrevFreeAmt
+		END                                 AS HasRenew
+	,lh.Id                               AS lhIds
+	,pr.hmy                              AS ProspectId
+	,COALESCE(prevFree.FreeAmt, 0)       AS PrevFreeAmt
 FROM [PivotResults14a053ff-f900-4bc6-860f-2bd1c1a526c2] r
 INNER JOIN property p ON p.hmy = r.PropertyId
 INNER JOIN tenant t ON t.hmyperson = r.TenantId

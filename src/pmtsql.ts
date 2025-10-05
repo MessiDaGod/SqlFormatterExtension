@@ -22,30 +22,30 @@ function ns() {
   return { g, JS, Lib, Format };
 }
 
-export function formatWithPoorMans(sql: string, indentSize = 4): string {
-  const Format = findFormatFn();
-  if (typeof Format !== "function") {
-    throw new Error("Poor Man's T-SQL: global Format(...) not found.");
-  }
+// export function formatWithPoorMans(sql: string, indentSize = 4): string {
+//   const Format = findFormatFn();
+//   if (typeof Format !== "function") {
+//     throw new Error("Poor Man's T-SQL: global Format(...) not found.");
+//   }
 
-  const options = {
-    IndentString: " ".repeat(Math.max(0, indentSize)),
-    SpacesPerTab: indentSize,
-    MaxLineWidth: 999,
-    // 👇 prevent breaking lists
-    ExpandCommaLists: false,
-    ExpandInLists: false,
-    // keep these off too (just to be explicit)
-    TrailingCommas: false,
-    SpaceAfterExpandedComma: false,
-  };
+//   const options = {
+//     IndentString: " ".repeat(Math.max(0, indentSize)),
+//     SpacesPerTab: indentSize,
+//     MaxLineWidth: 999,
+//     // 👇 prevent breaking lists
+//     ExpandCommaLists: false,
+//     ExpandInLists: false,
+//     // keep these off too (just to be explicit)
+//     TrailingCommas: false,
+//     SpaceAfterExpandedComma: false,
+//   };
 
-  const result = Format(sql.length, options, sql);
-  if (!result || result.status !== "formatted") {
-    throw new Error("Poor Man's T-SQL returned an unexpected result.");
-  }
-  return result.outputSqlText;
-}
+//   const result = Format(sql.length, options, sql);
+//   if (!result || result.status !== "formatted") {
+//     throw new Error("Poor Man's T-SQL returned an unexpected result.");
+//   }
+//   return result.outputSqlText;
+// }
 
 export function formatWithPoorMans(sql: string, indentSize = 4): string {
   const { JS, Lib, Format } = ns();

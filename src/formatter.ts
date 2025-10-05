@@ -26,7 +26,7 @@ export function formatSql(input: string, opts: StylistOptions): string {
   });
 
   // house-style passes (order matters)
-  out = forceSemicolonBeforeWith(out);
+  // out = forceSemicolonBeforeWith(out);
   out = uppercaseFunctions(out);
   out = uppercaseDataTypes(out);
   out = compactCaseWhenHeaders(out);
@@ -41,7 +41,10 @@ export function formatSql(input: string, opts: StylistOptions): string {
   if (opts.oneLineFunctionArgs) out = collapseCommonFunctionArgs(out);
   if (opts.commaBeforeColumn) out = applyLeadingCommasToSelect(out);
   if (opts.convertLineCommentsToBlock) out = convertLineComments(out);
-  if (opts.alignAs) out = alignAsInSelect(out);
+  if (opts.alignAs) {
+    log("Aligning AS Statements.");
+    out = alignAsInSelect(out);
+  }
 
   return out;
 }
