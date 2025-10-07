@@ -53,7 +53,6 @@ export function lightHousePostProcess(
   sql: string,
   opts: StylistOptions
 ): string {
-  const channel = vscode.window.createOutputChannel("Better SQL Stylist");
   let out = sql;
   // safe, visual-only tweaks
   // out = uppercaseFunctions(out);
