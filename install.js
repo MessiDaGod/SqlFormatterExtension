@@ -6,6 +6,18 @@ const fsp = fs.promises;
 const path = require('path');
 const { spawn } = require('child_process');
 
+const action = (process.argv[2] || "install").toLowerCase();
+
+async function uninstallSelf() {
+    const cwd = process.cwd();
+    const pkg = JSON.parse(await fsp.readFile(path.join(cwd, "package.json"), "utf8"));
+    const extensionId = `${pkg.publisher}.${pkg.name}`;
+    const codeCmd = await pickCodeCli();
+    console.log(`\n▶ Uninstalling ${extensionId}`);
+    await run(codeCmd, ["--uninstall-extension", extensionId]);
+    console.log("✅ Uninstalled.");
+}
+
 function run(cmd, args = [], opts = {}) {
     return new Promise((resolve, reject) => {
         const p = spawn(cmd, args, { stdio: 'inherit', shell: true, ...opts });
@@ -41,7 +53,7 @@ async function pickCodeCli() {
         } catch { }
     }
     throw new Error(
-        "Could not find VS Code CLI. Make sure 'code' is on PATH (Command Palette → “Shell Command: Install 'code' command in PATH”)."
+        `Could not find VS Code CLI. Make sure 'code' is on PATH (Command Palette → "Shell Command: Install 'code' command in PATH").`
     );
 }
 
@@ -98,12 +110,35 @@ async function installVsix(codeCmd, vsixPath) {
     await run(codeCmd, ['--install-extension', vsixPath]);
 }
 
+async function publishToMarketplace() {
+    console.log("\n▶ npm i");
+    await run("npm", ["i"]);
+
+    console.log("\n▶ npm run compile");
+    await run("npm", ["run", "compile"]);
+
+    console.log("\n▶ vsce publish");
+    await run("vsce", ["publish"]);
+
+    console.log("\n✅ Published to marketplace!");
+}
+
 (async () => {
+    if (action === "uninstall") {
+        await uninstallSelf();
+        return;
+    }
+
+    if (action === "publish") {
+        await publishToMarketplace();
+        return;
+    }
+
     const cwd = process.cwd();
-    const pkgPath = path.join(cwd, 'package.json');
+    const pkgPath = path.join(cwd, "package.json");
     if (!fs.existsSync(pkgPath)) throw new Error(`package.json not found at ${pkgPath}`);
 
-    const pkg = JSON.parse(await fsp.readFile(pkgPath, 'utf8'));
+    const pkg = JSON.parse(await fsp.readFile(pkgPath, "utf8"));
     const name = pkg.name;
     const version = pkg.version;
     const publisher = pkg.publisher;
@@ -112,22 +147,36 @@ async function installVsix(codeCmd, vsixPath) {
     }
     const extensionId = `${publisher}.${name}`;
 
-    console.log('\n▶ npm i');
-    await run('npm', ['i']);
+    const codeCmd = await pickCodeCli();
 
-    console.log('\n▶ npm run compile');
-    await run('npm', ['run', 'compile']);
+    if (action === "reinstall") {
+        // remove current first (in addition to any historic/duplicate ones)
+        try {
+            console.log(`\n▶ Uninstalling current ${extensionId}`);
+            await run(codeCmd, ["--uninstall-extension", extensionId]);
+        } catch (e) {
+            console.warn(`(warn) Could not uninstall ${extensionId}: ${e.message}`);
+        }
+    }
 
-    console.log('\n▶ npm run package');
-    await run('npm', ['run', 'package']);
+    console.log("\n▶ npm i");
+    await run("npm", ["i"]);
+
+    console.log("\n▶ npm run compile");
+    await run("npm", ["run", "compile"]);
+
+    console.log("\n▶ npm run package");
+    await run("npm", ["run", "package"]);
 
     const vsix = await findVsix(name, version, cwd);
-    const codeCmd = await pickCodeCli();
 
     await uninstallOldOnes(codeCmd, extensionId);
 
     console.log(`\n▶ Installing ${path.basename(vsix)} (${extensionId})`);
     await installVsix(codeCmd, vsix);
 
-    console.log('\n✅ Done.');
-})();
+    console.log("\n✅ Done.");
+})().catch((e) => {
+    console.error("\n❌ install.js failed:", e?.message || e);
+    process.exit(1);
+});

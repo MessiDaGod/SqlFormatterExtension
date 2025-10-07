@@ -6,7 +6,7 @@
     },
     "displayName": "A Better SQL Stylist (T-SQL Formatter)",
     "description": "Opinionated T-SQL formatter matching ChatGPT's house style: uppercase keywords, clean indentation, optional AS alignment and block-comments.",
-    "version": "0.1.1",
+    "version": "0.3.0",
     "publisher": "shakely-consulting",
     "engines": {
         "vscode": "^1.85.0"
@@ -74,6 +74,20 @@
                     "type": "boolean",
                     "default": true,
                     "description": "Force ';WITH' at the start of any CTE line and remove blank lines before it."
+                },
+                "sqlStylist.engine": {
+                    "type": "string",
+                    "enum": [
+                        "house",
+                        "pmtsql"
+                    ],
+                    "default": "house",
+                    "description": "Choose the formatter engine: built-in (house) or Poor Man's T-SQL (pmtsql)."
+                },
+                "sqlStylist.postProcessHouse": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "After 'pmtsql', apply light house cleanups (uppercasing functions/types, WHERE/HAVING/INTO compaction, JOIN alignment, derived-table indent, IF/DROP normalization)."
                 }
             }
         },
@@ -101,12 +115,14 @@
             ]
         }
     },
+    "license": "AGPL-3.0-only",
     "scripts": {
         "compile": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --platform=node --external:vscode --format=cjs",
         "watch": "npm run compile -- --watch",
         "package": "vsce package",
-        "lint": "echo \"No lint configured\"",
-        "ext:install": "node install.js"
+        "ext:install": "node install.js install",
+        "ext:reinstall": "node install.js reinstall",
+        "ext:uninstall": "node install.js uninstall"
     },
     "devDependencies": {
         "@types/node": "^20.0.0",
