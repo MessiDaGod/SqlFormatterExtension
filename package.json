@@ -6,7 +6,7 @@
     },
     "displayName": "A Better SQL Stylist (T-SQL Formatter)",
     "description": "Opinionated T-SQL formatter matching ChatGPT's house style: uppercase keywords, clean indentation, optional AS alignment and block-comments.",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "publisher": "shakely-consulting",
     "engines": {
         "vscode": "^1.85.0"

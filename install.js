@@ -53,7 +53,7 @@ async function pickCodeCli() {
         } catch { }
     }
     throw new Error(
-        "Could not find VS Code CLI. Make sure 'code' is on PATH (Command Palette → “Shell Command: Install 'code' command in PATH”)."
+        `Could not find VS Code CLI. Make sure 'code' is on PATH (Command Palette → "Shell Command: Install 'code' command in PATH").`
     );
 }
 
@@ -110,9 +110,27 @@ async function installVsix(codeCmd, vsixPath) {
     await run(codeCmd, ['--install-extension', vsixPath]);
 }
 
+async function publishToMarketplace() {
+    console.log("\n▶ npm i");
+    await run("npm", ["i"]);
+
+    console.log("\n▶ npm run compile");
+    await run("npm", ["run", "compile"]);
+
+    console.log("\n▶ vsce publish");
+    await run("vsce", ["publish"]);
+
+    console.log("\n✅ Published to marketplace!");
+}
+
 (async () => {
     if (action === "uninstall") {
         await uninstallSelf();
+        return;
+    }
+
+    if (action === "publish") {
+        await publishToMarketplace();
         return;
     }
 
