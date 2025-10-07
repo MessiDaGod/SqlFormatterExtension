@@ -139,7 +139,7 @@ AS (
 	SELECT tr.hMy
 		,tr.iType
 		,tr.sDateOccurred
-		,ct.sCode     AS chargecode
+		,ct.sCode AS chargecode
 		,CT.HMY ChargeCodeId
 		,RTRIM(ct.sName) sName
 		,TENANT.hMyPerson
@@ -150,15 +150,15 @@ AS (
 		,tr.bACH
 		,tr.bCC
 		,tr.sTotalAmount
-		,d.sAmount    AS DetailAmount
-		,p.sCode      AS PropCode
+		,d.sAmount AS DetailAmount
+		,p.sCode AS PropCode
 		,TENANT.hProperty
 		,TENANT.DTLEASEFROM
 		,SUM(tr.sTotalAmount - tr.sAmountPaid) OVER (
 			PARTITION BY tenant.hMyPerson
 			,p.hMy ORDER BY tr.sDateOccurred
 				,tr.hMy ROWS UNBOUNDED PRECEDING
-			)            AS running_balance
+			) AS running_balance
 	FROM property p
 	JOIN tenant ON p.hmy = TENANT.hproperty
 	JOIN trans tr ON TENANT.hMyPerson = tr.hPerson
@@ -476,13 +476,13 @@ AS (
 	/* === Source rows: one per receipt/tenant === */
 G
 AS (
-	SELECT RTRIM(p.scode)       AS PropCode
-		,RTRIM(pr.sCode)    AS ProspectCode
-		,pr.hProperty       AS PropertyId
-		,TENANT.hMyPerson   AS TenantId
+	SELECT RTRIM(p.scode) AS PropCode
+		,RTRIM(pr.sCode) AS ProspectCode
+		,pr.hProperty AS PropertyId
+		,TENANT.hMyPerson AS TenantId
 		,TENANT.DTLEASEFROM AS LeaseFromDate
-		,pr.hMy             AS ProspectId
-		,gr.HMY             AS ReceiptId
+		,pr.hMy AS ProspectId
+		,gr.HMY AS ReceiptId
 		,gr.*
 	FROM GuestCard_Receipt gr
 	JOIN prospect pr ON pr.hmy = gr.hCode
@@ -593,16 +593,16 @@ SELECT r.PropertyId
 	,r.TenantId
 	,r.ReceiptId
 	,r.isProrate
-	,r.ColumnName   AS receiptField
-	,r.Amount       AS amount
+	,r.ColumnName AS receiptField
+	,r.Amount AS amount
 	,CASE
 		WHEN r.isProrate = 1
 			THEN dbo.fn_CalcProrationForTenant(N'Move In', r.LeaseFromDate, r.TenantId, r.Amount)
 		ELSE 0
-		END            AS ProrateAmt
-	,c.HMY          AS chargeTypeHmy
+		END AS ProrateAmt
+	,c.HMY AS chargeTypeHmy
 	,RTRIM(c.SCODE) AS chargeCode
-	,c.SNAME        AS chargeName
+	,c.SNAME AS chargeName
 INTO [GuestCardReceipt#@@SESSIONID#]
 FROM Rows r
 JOIN CHARGTYP c ON RTRIM(c.SCODE) = r.SCODE
@@ -622,7 +622,7 @@ AS (
 			WHEN m.bRentableItem = - 1
 				AND m.bProrate = - 1
 				THEN dbo.fn_CalcProrationForTenant(N'Move In', TENANT.DTLEASEFROM, TENANT.HMYPERSON, ri.cRent)
-			ELSE CAST(ISNULL(m.cMoveInAmt, 0.0)                                                AS DECIMAL(18, 2))
+			ELSE CAST(ISNULL(m.cMoveInAmt, 0.0) AS DECIMAL(18, 2))
 			END
 		,m.bRecurring
 		,m.bProrate
@@ -663,8 +663,8 @@ AS (
 			,ct.hmy ChargeCodeId
 			,RTRIM(ct.sCode) ChargeCode
 			,RTRIM(ct.sName) sName
-			,CONVERT(NUMERIC(18, 0), ISNULL(SUM(pr.dQuan), 0))                                                                                  AS Quantity
-			,CAST(ISNULL(SUM(pr.dQuan), 0) * sum(rt.cRent)                                                                                      AS DECIMAL(18, 2)) AS Amount
+			,CONVERT(NUMERIC(18, 0), ISNULL(SUM(pr.dQuan), 0)) AS Quantity
+			,CAST(ISNULL(SUM(pr.dQuan), 0) * sum(rt.cRent) AS DECIMAL(18, 2)) AS Amount
 			,dbo.fn_CalcProrationForTenant(N'Move In', MAX(TENANT.DTLEASEFROM), TENANT.hmyperson, CAST(ISNULL(SUM(pr.dQuan), 0) * sum(rt.cRent) AS DECIMAL(18, 2))) ProrateAmt
 			,TENANT.DTLEASEFROM
 		FROM RentableItemsType rt
@@ -1128,8 +1128,8 @@ AS (
 		,TenantId
 		,sCode = ''
 		,sName = ''
-		,SUM(Amt)   AS Amt
-		,CAST(0     AS DECIMAL(18, 2)) AS Prorate
+		,SUM(Amt) AS Amt
+		,CAST(0 AS DECIMAL(18, 2)) AS Prorate
 		,TaxDesc = ''
 		,Tax = ''
 		,TotalDesc = 'TOTAL NON-REFUNDABLE FEES:'
@@ -1178,12 +1178,12 @@ AS (
 		,TenantId
 		,sCode = ''
 		,sName = ''
-		,SUM(Amt)          AS Amt
+		,SUM(Amt) AS Amt
 		,CAST(SUM(Prorate) AS DECIMAL(18, 2)) AS Prorate
 		,TaxDesc = ''
 		,Tax = ''
 		,TotalDesc = 'TOTAL REFUNDABLE DEPOSITS:'
-		,SUM(Amt)          AS Total
+		,SUM(Amt) AS Total
 	FROM Dep
 	GROUP BY TenantId
 	HAVING SUM(Amt) <> 0
@@ -1326,20 +1326,20 @@ IF OBJECT_ID('tempdb..#Chg') IS NOT NULL
 
 SELECT rn
 	,hmyperson
-	,SUM(baseRent)           AS baseRent
-	,SUM(parkingRent)        AS parkingRent
-	,SUM(fees)               AS fees
-	,SUM([bldgfee])          AS [bldgfee]
-	,SUM(storageRent)        AS storageRent
-	,SUM(petRent)            AS petRent
-	,SUM(otherRent)          AS otherRent
-	,SUM(MTPackage)          AS MTPackage
-	,SUM(FreeRent)           AS FreeRent
-	,SUM(RentIns)            AS RentIns
-	,SUM(prorateBaseRent)    AS prorateBaseRent
-	,SUM(ProrateBldgfee)     AS ProrateBldgfee
+	,SUM(baseRent) AS baseRent
+	,SUM(parkingRent) AS parkingRent
+	,SUM(fees) AS fees
+	,SUM([bldgfee]) AS [bldgfee]
+	,SUM(storageRent) AS storageRent
+	,SUM(petRent) AS petRent
+	,SUM(otherRent) AS otherRent
+	,SUM(MTPackage) AS MTPackage
+	,SUM(FreeRent) AS FreeRent
+	,SUM(RentIns) AS RentIns
+	,SUM(prorateBaseRent) AS prorateBaseRent
+	,SUM(ProrateBldgfee) AS ProrateBldgfee
 	,SUM(ProrateParkingRent) AS ProrateParkingRent
-	,SUM(ProrateRentIns)     AS ProrateRentIns
+	,SUM(ProrateRentIns) AS ProrateRentIns
 	,SUM(applicFee2) applicFee2
 	,SUM(ProrateOtherRent) ProrateOtherRent
 INTO [#Chg]
@@ -1357,7 +1357,7 @@ FROM (
 				WHEN ct.scode IN ('credit')
 					THEN cr.dEstimated
 				ELSE 0
-				END)                                                                                                                                                                                                              AS applicFee2
+				END) AS applicFee2
 		,SUM(CASE
 				WHEN ct.scode IN (
 						'.rent'
@@ -1365,15 +1365,15 @@ FROM (
 						)
 					THEN cr.dEstimated
 				ELSE 0
-				END)                                                                                                                                                                                                              AS baseRent
+				END) AS baseRent
 		,SUM(CASE
 				WHEN ct.sCode IN (
 						'.rent'
 						,'mtm'
 						)
 					THEN (DAY(EOMONTH(COALESCE(cr.dtFrom, TENANT.dtLeaseFrom))) - DAY(COALESCE(cr.dtFrom, TENANT.dtLeaseFrom))) * COALESCE(cr.dEstimated, TENANT.sRent) / CAST(DAY(EOMONTH(COALESCE(cr.dtFrom, TENANT.dtLeaseFrom))) AS DECIMAL(18, 6))
-				ELSE (DAY(EOMONTH(COALESCE(cr.dtFrom, TENANT.dtLeaseFrom))) - DAY(COALESCE(cr.dtFrom, TENANT.dtLeaseFrom))) * COALESCE(cr.dEstimated, TENANT.sRent) / CAST(DAY(EOMONTH(COALESCE(cr.dtFrom, TENANT.dtLeaseFrom)))  AS DECIMAL(18, 6))
-				END)                                                                                                                                                                                                              AS prorateBaseRent
+				ELSE (DAY(EOMONTH(COALESCE(cr.dtFrom, TENANT.dtLeaseFrom))) - DAY(COALESCE(cr.dtFrom, TENANT.dtLeaseFrom))) * COALESCE(cr.dEstimated, TENANT.sRent) / CAST(DAY(EOMONTH(COALESCE(cr.dtFrom, TENANT.dtLeaseFrom))) AS DECIMAL(18, 6))
+				END) AS prorateBaseRent
 		,SUM(CASE
 				WHEN ct.scode IN (
 						'garage'
@@ -1382,14 +1382,14 @@ FROM (
 						)
 					THEN cr.dEstimated
 				ELSE 0
-				END)                                                                                                                                                                                                              AS parkingRent
+				END) AS parkingRent
 		,SUM(CASE
 				WHEN ct.sCode IN (
 						'garage'
 						,'park'
 						)
 					AND cr.dtFrom > DATEADD(MONTH, - 1, DATEADD(DAY, 1, EOMONTH(GETDATE())))
-					THEN (DAY(EOMONTH(COALESCE(cr.dtFrom, TENANT.dtLeaseFrom))) - DAY(COALESCE(cr.dtFrom, TENANT.dtLeaseFrom))) * ISNULL(cr.dEstimated, 0) / CAST(DAY(EOMONTH(COALESCE(cr.dtFrom, TENANT.dtLeaseFrom)))              AS DECIMAL(18, 6))
+					THEN (DAY(EOMONTH(COALESCE(cr.dtFrom, TENANT.dtLeaseFrom))) - DAY(COALESCE(cr.dtFrom, TENANT.dtLeaseFrom))) * ISNULL(cr.dEstimated, 0) / CAST(DAY(EOMONTH(COALESCE(cr.dtFrom, TENANT.dtLeaseFrom))) AS DECIMAL(18, 6))
 				WHEN ct.sCode IN (
 						'garage'
 						,'park'
@@ -1397,32 +1397,32 @@ FROM (
 						)
 					THEN cr.dEstimated
 				ELSE 0
-				END)                                                                                                                                                                                                              AS ProrateParkingRent
+				END) AS ProrateParkingRent
 		,SUM(CASE
 				WHEN ct.sCode IN ('mtpest')
 					THEN cr.dEstimated
 				ELSE 0
-				END)                                                                                                                                                                                                              AS fees
+				END) AS fees
 		,SUM(CASE
 				WHEN ct.sCode IN ('bldgfee')
 					THEN cr.dEstimated
 				ELSE 0
-				END)                                                                                                                                                                                                              AS [bldgfee]
+				END) AS [bldgfee]
 		,SUM(CASE
 				WHEN ct.sCode IN ('bldgfee')
-					THEN (DAY(EOMONTH(COALESCE(cr.dtFrom, TENANT.dtLeaseFrom))) - DAY(COALESCE(cr.dtFrom, TENANT.dtLeaseFrom))) * ISNULL(cr.dEstimated, 0) / CAST(DAY(EOMONTH(COALESCE(cr.dtFrom, TENANT.dtLeaseFrom)))              AS DECIMAL(18, 6))
+					THEN (DAY(EOMONTH(COALESCE(cr.dtFrom, TENANT.dtLeaseFrom))) - DAY(COALESCE(cr.dtFrom, TENANT.dtLeaseFrom))) * ISNULL(cr.dEstimated, 0) / CAST(DAY(EOMONTH(COALESCE(cr.dtFrom, TENANT.dtLeaseFrom))) AS DECIMAL(18, 6))
 				ELSE 0
-				END)                                                                                                                                                                                                              AS ProrateBldgfee
+				END) AS ProrateBldgfee
 		,SUM(CASE
 				WHEN ct.sCode IN ('storage')
 					THEN cr.dEstimated
 				ELSE 0
-				END)                                                                                                                                                                                                              AS storageRent
+				END) AS storageRent
 		,SUM(CASE
 				WHEN ct.sCode IN ('petrent')
 					THEN cr.dEstimated
 				ELSE 0
-				END)                                                                                                                                                                                                              AS petRent
+				END) AS petRent
 		,SUM(CASE
 				WHEN ct.sCode IN (
 						'misc'
@@ -1433,7 +1433,7 @@ FROM (
 						)
 					THEN cr.dEstimated
 				ELSE 0
-				END)                                                                                                                                                                                                              AS otherRent
+				END) AS otherRent
 		,SUM(CASE
 				WHEN ct.sCode IN (
 						'misc'
@@ -1443,7 +1443,7 @@ FROM (
 						,'mtplus'
 						)
 					AND cr.dtFrom > DATEADD(MONTH, - 1, DATEADD(DAY, 1, EOMONTH(GETDATE())))
-					THEN (DAY(EOMONTH(COALESCE(cr.dtFrom, TENANT.dtLeaseFrom))) - DAY(COALESCE(cr.dtFrom, TENANT.dtLeaseFrom))) * ISNULL(cr.dEstimated, 0) / CAST(DAY(EOMONTH(COALESCE(cr.dtFrom, TENANT.dtLeaseFrom)))              AS DECIMAL(18, 6))
+					THEN (DAY(EOMONTH(COALESCE(cr.dtFrom, TENANT.dtLeaseFrom))) - DAY(COALESCE(cr.dtFrom, TENANT.dtLeaseFrom))) * ISNULL(cr.dEstimated, 0) / CAST(DAY(EOMONTH(COALESCE(cr.dtFrom, TENANT.dtLeaseFrom))) AS DECIMAL(18, 6))
 				WHEN ct.sCode IN (
 						'misc'
 						,'evcs'
@@ -1453,17 +1453,17 @@ FROM (
 						)
 					THEN cr.dEstimated
 				ELSE 0
-				END)                                                                                                                                                                                                              AS ProrateOtherRent
+				END) AS ProrateOtherRent
 		,SUM(CASE
 				WHEN ct.sCode IN ('mtplus')
 					THEN cr.dEstimated
 				ELSE 0
-				END)                                                                                                                                                                                                              AS MTPackage
+				END) AS MTPackage
 		,SUM(CASE
 				WHEN ct.sCode IN ('free')
 					THEN cr.dEstimated
 				ELSE 0
-				END)                                                                                                                                                                                                              AS FreeRent
+				END) AS FreeRent
 		,SUM(CASE
 				WHEN ct.hMy IN (
 						236
@@ -1471,15 +1471,15 @@ FROM (
 						)
 					THEN cr.dEstimated
 				ELSE 0
-				END)                                                                                                                                                                                                              AS RentIns
+				END) AS RentIns
 		,SUM(CASE
 				WHEN ct.hMy IN (
 						236
 						,239
 						)
-					THEN (DAY(EOMONTH(COALESCE(cr.dtFrom, TENANT.dtLeaseFrom))) - (DAY(COALESCE(cr.dtFrom, TENANT.dtLeaseFrom)) - 1)) * ISNULL(cr.dEstimated, 0) / CAST(DAY(EOMONTH(COALESCE(cr.dtFrom, TENANT.dtLeaseFrom)))        AS DECIMAL(18, 6))
+					THEN (DAY(EOMONTH(COALESCE(cr.dtFrom, TENANT.dtLeaseFrom))) - (DAY(COALESCE(cr.dtFrom, TENANT.dtLeaseFrom)) - 1)) * ISNULL(cr.dEstimated, 0) / CAST(DAY(EOMONTH(COALESCE(cr.dtFrom, TENANT.dtLeaseFrom))) AS DECIMAL(18, 6))
 				ELSE 0
-				END)                                                                                                                                                                                                              AS ProrateRentIns
+				END) AS ProrateRentIns
 	FROM TENANT
 	JOIN property p ON p.HMY = TENANT.HPROPERTY
 	LEFT JOIN camrule cr ON cr.htenant = TENANT.hmyperson
@@ -1516,7 +1516,7 @@ SELECT DISTINCT 'y_Arts_District_Lease.docx' "_FILE_0"
 		END "_FILE_1"
 	,'y_Arts_District_TrashDisposalAddendum.docx' AS "_FILE_2"
 	,pb2.PI_KEYAPT
-	,GS.Guarantors                                AS 'Guarantors'
+	,GS.Guarantors AS 'Guarantors'
 	,'$' + FORMAT(COALESCE(NULLIF(pb2.PI_ENTRYDEV, 0), 0), 'n2') PI_ENTRYDEV
 	,RTRIM(UNIT.scode) + CASE
 		WHEN COALESCE(conc.MR_GP_SPACE, '') <> ''
@@ -1555,7 +1555,7 @@ SELECT DISTINCT 'y_Arts_District_Lease.docx' "_FILE_0"
 			AND ISNULL(pet.PetCount, 0) = 0
 			THEN 'No pets have been authorized at this time.'
 		ELSE ''
-		END                                          AS 'NoPets'
+		END AS 'NoPets'
 	,NonOccupants = CASE
 		WHEN non.NonOccupants = ''
 			THEN ''
@@ -1566,7 +1566,7 @@ SELECT DISTINCT 'y_Arts_District_Lease.docx' "_FILE_0"
 			WHEN ISNULL(lh_cnt.LeaseRowCount, 0) <= 1
 				THEN COALESCE(NULLIF(mic.MIC_BaseRent, 0), TENANT.sRent)
 			ELSE COALESCE(NULLIF(renewCharges.renewBaseRent, 0), 0)
-			END, 'N2')                                  AS MIC_BaseRent
+			END, 'N2') AS MIC_BaseRent
 	,'$ ' + FORMAT(CASE
 			WHEN ISNULL(lh_cnt.LeaseRowCount, 0) <= 1
 				THEN dbo.fn_CalcProrationForTenant(N'Move In', TENANT.DTLEASEFROM, TENANT.HMYPERSON, NULL) + CASE
@@ -1579,7 +1579,7 @@ SELECT DISTINCT 'y_Arts_District_Lease.docx' "_FILE_0"
 						THEN COALESCE(NULLIF(renewCharges.renewBaseRent, 0), TENANT.sRent)
 					ELSE 0
 					END
-			END, 'N2')                                  AS MIC_ProrateBaseRent
+			END, 'N2') AS MIC_ProrateBaseRent
 	,'$ ' + FORMAT(CASE
 			WHEN ISNULL(lh_cnt.LeaseRowCount, 0) <= 1
 				THEN dbo.fn_CalcProrationForTenant(N'Move In', TENANT.DTLEASEFROM, TENANT.HMYPERSON, mic.MIC_PetRent + mic.MIC_ParkingAndStorage + mic.MIC_Package + mic.MIC_MTPlus) + CASE
@@ -1593,17 +1593,17 @@ SELECT DISTINCT 'y_Arts_District_Lease.docx' "_FILE_0"
 						THEN ISNULL(renewCharges.renewPetRent, 0) + ISNULL(renewCharges.renewParkingRent, 0) + ISNULL(renewCharges.renewPackage, 0) + ISNULL(renewCharges.renewMTPlus, 0) + ISNULL(renewCharges.renewMTPest, 0) + COALESCE(NULLIF(renewCharges.renewRentersInsurance, 0), ri.Amount, 0)
 					ELSE 0
 					END
-			END, 'N2')                                  AS MIC_ProrateOther
+			END, 'N2') AS MIC_ProrateOther
 	,'$ ' + FORMAT(CASE
 			WHEN ISNULL(lh_cnt.LeaseRowCount, 0) <= 1
 				THEN ISNULL(mic.MIC_Parking, 0)
 			ELSE ISNULL(renewCharges.renewParkingRent, 0)
-			END, 'N2')                                  AS MIC_Parking
+			END, 'N2') AS MIC_Parking
 	,'$ ' + FORMAT(CASE
 			WHEN ISNULL(lh_cnt.LeaseRowCount, 0) <= 1
 				THEN ISNULL(mic.MIC_Storage, 0)
 			ELSE ISNULL(renewCharges.renewStorageRent, 0)
-			END, 'N2')                                  AS MIC_Storage
+			END, 'N2') AS MIC_Storage
 	,'$ ' + FORMAT(CASE
 			WHEN ISNULL(lh_cnt.LeaseRowCount, 0) <= 1
 				THEN ISNULL(dbo.fn_CalcProrationForTenant(N'Move In', TENANT.DTLEASEFROM, TENANT.HMYPERSON, NULL), 0) + ISNULL(dbo.fn_CalcProrationForTenant(N'Move In', TENANT.DTLEASEFROM, TENANT.HMYPERSON, ISNULL(mic.MIC_PetRent, 0) + ISNULL(mic.MIC_ParkingAndStorage, 0) + ISNULL(mic.MIC_Package, 0) + ISNULL(mic.MIC_MTPlus, 0)), 0) + CASE
@@ -1621,142 +1621,142 @@ SELECT DISTINCT 'y_Arts_District_Lease.docx' "_FILE_0"
 						THEN ISNULL(renewPetRent, 0) + ISNULL(renewParkingRent, 0) + ISNULL(renewPackage, 0) + ISNULL(renewMTPlus, 0) + ISNULL(renewMTPest, 0) + COALESCE(NULLIF(renewCharges.renewRentersInsurance, 0), ri.Amount, 0)
 					ELSE 0
 					END
-			END, 'N2')                                  AS MIC_SubtotalPara
+			END, 'N2') AS MIC_SubtotalPara
 	,'$ ' + FORMAT(CASE
 			WHEN ISNULL(lh_cnt.LeaseRowCount, 0) <= 1
 				THEN COALESCE(NULLIF(mic.MIC_ProrateNRPetFee, 0), 0)
 			ELSE 0
-			END, 'N2')                                  AS MIC_NRPetFee
+			END, 'N2') AS MIC_NRPetFee
 	,'$ ' + FORMAT(CASE
 			WHEN ISNULL(lh_cnt.LeaseRowCount, 0) <= 1
 				THEN COALESCE(NULLIF(mic.MIC_BaseRent, 0), TENANT.sRent) + COALESCE(mic.MIC_PetRent, 0) + COALESCE(mic.MIC_ParkingAndStorage, chg.parkingRent) + COALESCE(mic.MIC_Package, 0)
 			ELSE COALESCE(renewCharges.renewBaseRent, 0) + COALESCE(renewCharges.renewPetRent, 0) + COALESCE(renewCharges.renewParkingRent, 0) + COALESCE(renewCharges.renewStorageRent, 0) + COALESCE(renewCharges.renewOtherRent, 0) + COALESCE(renewCharges.renewMTPlus, 0) + COALESCE(renewCharges.renewMTPest, 0) + COALESCE(NULLIF(renewCharges.renewRentersInsurance, 0), ri.Amount, 0)
-			END, 'N2')                                  AS MIC_Subtotal
+			END, 'N2') AS MIC_Subtotal
 	,'$ ' + FORMAT(CASE
 			WHEN ISNULL(lh_cnt.LeaseRowCount, 0) <= 1
 				THEN COALESCE(mic.MIC_Package, 0)
 			ELSE 0
-			END, 'N2')                                  AS MIC_Package
+			END, 'N2') AS MIC_Package
 	,'$ ' + FORMAT(CASE
 			WHEN ISNULL(lh_cnt.LeaseRowCount, 0) <= 1
 				THEN COALESCE(mic.MIC_ProratePackage, 0)
 			ELSE 0
-			END, 'N2')                                  AS MIC_ProratePackage
+			END, 'N2') AS MIC_ProratePackage
 	,'$ ' + FORMAT(CASE
 			WHEN ISNULL(lh_cnt.LeaseRowCount, 0) <= 1
 				THEN COALESCE(mic.MIC_ParkingAndStorage, chg.parkingRent)
 			ELSE COALESCE(renewCharges.renewParkingRent, 0) + COALESCE(renewCharges.renewStorageRent, 0)
-			END, 'N2')                                  AS MIC_ParkingAndStorage
+			END, 'N2') AS MIC_ParkingAndStorage
 	,'$ ' + FORMAT(CASE
 			WHEN ISNULL(lh_cnt.LeaseRowCount, 0) <= 1
 				THEN COALESCE(mic.MIC_ProrateParkingAndStorage, 0)
 			ELSE 0
-			END, 'N2')                                  AS MIC_ProrateParkingAndStorage
+			END, 'N2') AS MIC_ProrateParkingAndStorage
 	,'$ ' + FORMAT(CASE
 			WHEN ISNULL(lh_cnt.LeaseRowCount, 0) <= 1
 				THEN COALESCE(mic.MIC_Fees, 0)
 			ELSE COALESCE(renewCharges.renewMtPest, 0)
-			END, 'N2')                                  AS MIC_Fees
+			END, 'N2') AS MIC_Fees
 	,'$ ' + FORMAT(CASE
 			WHEN ISNULL(lh_cnt.LeaseRowCount, 0) <= 1
 				THEN COALESCE(mic.MIC_ProrateFees, 0)
 			ELSE 0
-			END, 'N2')                                  AS MIC_ProrateFees
+			END, 'N2') AS MIC_ProrateFees
 	,'$ ' + FORMAT(CASE
 			WHEN ISNULL(lh_cnt.LeaseRowCount, 0) <= 1
 				THEN COALESCE(mic.MIC_BldgFee, 0)
 			ELSE 0
-			END, 'N2')                                  AS MIC_BldgFee
+			END, 'N2') AS MIC_BldgFee
 	,'$ ' + FORMAT(CASE
 			WHEN ISNULL(lh_cnt.LeaseRowCount, 0) <= 1
 				THEN COALESCE(mic.MIC_ProrateBldgFee, 0)
 			ELSE 0
-			END, 'N2')                                  AS MIC_ProrateBldgFee
+			END, 'N2') AS MIC_ProrateBldgFee
 	,'$ ' + FORMAT(CASE
 			WHEN ISNULL(lh_cnt.LeaseRowCount, 0) <= 1
 				THEN COALESCE(mic.MIC_StorageRent, 0)
 			ELSE COALESCE(renewCharges.renewStorageRent, 0)
-			END, 'N2')                                  AS MIC_StorageRent
+			END, 'N2') AS MIC_StorageRent
 	,'$ ' + FORMAT(CASE
 			WHEN ISNULL(lh_cnt.LeaseRowCount, 0) <= 1
 				THEN COALESCE(mic.MIC_ProrateStorageRent, 0)
 			ELSE 0
-			END, 'N2')                                  AS MIC_ProrateStorageRent
+			END, 'N2') AS MIC_ProrateStorageRent
 	,'$ ' + FORMAT(CASE
 			WHEN ISNULL(lh_cnt.LeaseRowCount, 0) <= 1
 				THEN COALESCE(mic.MIC_PetRent, 0)
 			ELSE COALESCE(renewCharges.renewPetRent, 0)
-			END, 'N2')                                  AS MIC_PetRent
+			END, 'N2') AS MIC_PetRent
 	,'$ ' + FORMAT(CASE
 			WHEN ISNULL(lh_cnt.LeaseRowCount, 0) <= 1
 				THEN COALESCE(NULLIF(mic.MIC_ProratePetRent, 0), 0)
 			ELSE 0
-			END, 'N2')                                  AS MIC_ProratePetRent
+			END, 'N2') AS MIC_ProratePetRent
 	,'$ ' + FORMAT(CASE
 			WHEN ISNULL(lh_cnt.LeaseRowCount, 0) <= 1
 				THEN COALESCE(mic.MIC_OtherRent, 0)
 			ELSE COALESCE(renewCharges.renewOtherRent, 0)
-			END, 'N2')                                  AS MIC_OtherRent
+			END, 'N2') AS MIC_OtherRent
 	,'$ ' + FORMAT(CASE
 			WHEN ISNULL(lh_cnt.LeaseRowCount, 0) <= 1
 				THEN COALESCE(NULLIF(mic.MIC_ProrateOtherRent, 0), Chg.ProrateOtherRent, 0)
 			ELSE 0
-			END, 'N2')                                  AS MIC_ProrateOtherRent
+			END, 'N2') AS MIC_ProrateOtherRent
 	,'$ ' + FORMAT(CASE
 			WHEN ISNULL(lh_cnt.LeaseRowCount, 0) <= 1
 				THEN COALESCE(mic.MIC_SubtotalMonthlyRent, 0)
 			ELSE COALESCE(renewCharges.renewBaseRent, 0) + COALESCE(renewCharges.renewParkingRent, 0) + COALESCE(renewCharges.renewStorageRent, 0) + COALESCE(renewCharges.renewOtherRent, 0) + COALESCE(renewCharges.renewMtPest, 0) + COALESCE(renewCharges.renewMTPlus, 0)
-			END, 'N2')                                  AS MIC_SubtotalMonthlyRent
+			END, 'N2') AS MIC_SubtotalMonthlyRent
 	,'$ ' + FORMAT(CASE
 			WHEN ISNULL(lh_cnt.LeaseRowCount, 0) <= 1
 				THEN COALESCE(mic.MIC_ProrateSubtotalMonthlyRent, 0)
 			ELSE 0
-			END, 'N2')                                  AS MIC_ProrateSubtotalMonthlyRent
+			END, 'N2') AS MIC_ProrateSubtotalMonthlyRent
 	,'$ ' + FORMAT(CASE
 			WHEN ISNULL(lh_cnt.LeaseRowCount, 0) <= 1
 				THEN COALESCE(NULLIF(mic.MIC_MTPlus, 0), chg.MTPackage + chg.parkingRent + chg.otherRent + chg.RentIns, 0)
 			ELSE COALESCE(renewCharges.renewMTPlus, 0) + COALESCE(renewCharges.renewMtPest, 0)
-			END, 'N2')                                  AS MIC_MTPlus
+			END, 'N2') AS MIC_MTPlus
 	,'$ ' + FORMAT(CASE
 			WHEN ISNULL(lh_cnt.LeaseRowCount, 0) <= 1
 				THEN COALESCE(mic.MIC_ProrateMTPlus, 0)
 			ELSE 0
-			END, 'N2')                                  AS MIC_ProrateMTPlus
+			END, 'N2') AS MIC_ProrateMTPlus
 	,'$ ' + FORMAT(CASE
 			WHEN ISNULL(lh_cnt.LeaseRowCount, 0) <= 1
 				THEN COALESCE(mic.MIC_FreeRent, 0)
 			ELSE 0
-			END, 'N2')                                  AS MIC_FreeRent
+			END, 'N2') AS MIC_FreeRent
 	,'$ ' + FORMAT(CASE
 			WHEN ISNULL(lh_cnt.LeaseRowCount, 0) <= 1
 				THEN COALESCE(mic.MIC_ProrateFreeRent, 0)
 			ELSE 0
-			END, 'N2')                                  AS MIC_ProrateFreeRent
+			END, 'N2') AS MIC_ProrateFreeRent
 	,'$ ' + FORMAT(CASE
 			WHEN ISNULL(lh_cnt.LeaseRowCount, 0) <= 1
 				THEN COALESCE(mic.MIC_RentIns, 0)
 			ELSE COALESCE(NULLIF(renewCharges.renewRentersInsurance, 0), ri.Amount, 0)
-			END, 'N2')                                  AS MIC_RentIns
+			END, 'N2') AS MIC_RentIns
 	,'$ ' + FORMAT(CASE
 			WHEN ISNULL(lh_cnt.LeaseRowCount, 0) <= 1
 				THEN COALESCE(mic.MIC_ProrateRentIns, 0)
 			ELSE COALESCE(NULLIF(renewCharges.renewRentersInsurance, 0), ri.Amount, 0)
-			END, 'N2')                                  AS MIC_ProrateRentIns
+			END, 'N2') AS MIC_ProrateRentIns
 	,'$ ' + FORMAT(CASE
 			WHEN ISNULL(lh_cnt.LeaseRowCount, 0) <= 1
 				THEN COALESCE(mic.MIC_TotalFees, 0)
 			ELSE COALESCE(renewCharges.renewMtPest, 0) -- no bldgfee in renew; adjust if you want
-			END, 'N2')                                  AS MIC_TotalFees
+			END, 'N2') AS MIC_TotalFees
 	,'$ ' + FORMAT(CASE
 			WHEN ISNULL(lh_cnt.LeaseRowCount, 0) <= 1
 				THEN COALESCE(mic.MIC_ProrateTotalFees, 0)
 			ELSE 0
-			END, 'N2')                                  AS MIC_ProrateTotalFees
+			END, 'N2') AS MIC_ProrateTotalFees
 	,FORMAT(CASE
 			WHEN ISNULL(lh_cnt.LeaseRowCount, 0) <= 1
 				THEN mic.MIC_LastChargeDate
 			ELSE NULL
-			END, 'MM/dd/yyyy')                          AS MIC_LastChargeDate
+			END, 'MM/dd/yyyy') AS MIC_LastChargeDate
 	,OccupantsNotResident = STUFF((
 			SELECT DISTINCT ', ' + LTRIM(RTRIM(NULLIF(RTRIM(LTRIM(ISNULL(pn.sfirstname, ''))) + ' ' + RTRIM(LTRIM(ISNULL(pn.ulastname, ''))), '')))
 			FROM tenant t
@@ -2099,16 +2099,16 @@ OUTER APPLY (
 				END)
 		,MIC_PetDep = SUM(CASE
 				WHEN c.sCode <> 'petdep'
-					THEN CAST(0                          AS DECIMAL(18, 2))
+					THEN CAST(0 AS DECIMAL(18, 2))
 				WHEN m.bRecurring <> - 1
-					THEN CAST(ISNULL(m.cMoveInAmt, 0)    AS DECIMAL(18, 2))
+					THEN CAST(ISNULL(m.cMoveInAmt, 0) AS DECIMAL(18, 2))
 				ELSE COALESCE(NULLIF(CAST(m.cLeaseAmt AS DECIMAL(18, 2)), 0), NULLIF(CAST(m.cMoveInAmt AS DECIMAL(18, 2)), 0), CAST(ri.cRent AS DECIMAL(18, 2)), CAST(0 AS DECIMAL(18, 2)))
 				END)
 		,MIC_SecDep = SUM(CASE
 				WHEN c.sCode <> 'secdep'
-					THEN CAST(0                          AS DECIMAL(18, 2))
+					THEN CAST(0 AS DECIMAL(18, 2))
 				WHEN m.bRecurring <> - 1
-					THEN CAST(ISNULL(m.cMoveInAmt, 0)    AS DECIMAL(18, 2))
+					THEN CAST(ISNULL(m.cMoveInAmt, 0) AS DECIMAL(18, 2))
 				ELSE COALESCE(NULLIF(CAST(m.cLeaseAmt AS DECIMAL(18, 2)), 0), NULLIF(CAST(m.cMoveInAmt AS DECIMAL(18, 2)), 0), CAST(ri.cRent AS DECIMAL(18, 2)), CAST(0 AS DECIMAL(18, 2)))
 				END)
 		,
@@ -2291,17 +2291,17 @@ OUTER APPLY (
 	) chg
 OUTER APPLY (
 	SELECT t.hProperty PropertyId
-		,t.hmyperson     AS TenantId
+		,t.hmyperson AS TenantId
 		,rtrim(p.sCode) PropertyCode
-		,CAST(65         AS NUMERIC(18, 0)) AS ChargeCodeId
+		,CAST(65 AS NUMERIC(18, 0)) AS ChargeCodeId
 		,'free' ChargeCode
 		,CONVERT(BIT, 1) AS IsFreeRent
 		,gli.C_DescO 'FreeRentDesc'
-		,gli.C_AmtO      AS TotalFreeRentAmount
-		,gli.C_DescT     AS C_DescT
-		,gli.c_amtT      AS C_AmtT
+		,gli.C_AmtO AS TotalFreeRentAmount
+		,gli.C_DescT AS C_DescT
+		,gli.c_amtT AS C_AmtT
 		,gli.C_Date_From AS C_Date_From
-		,gli.c_Date_To   AS C_Date_To
+		,gli.c_Date_To AS C_Date_To
 		,t.dtMoveIn
 		,t.dtLeaseFrom
 		,t.dtMoveOut

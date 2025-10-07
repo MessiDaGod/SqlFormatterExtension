@@ -104,17 +104,12 @@ export function activate(context: vscode.ExtensionContext) {
     } as StylistOptions;
 
     const formatFn = (sql: string) => {
-      if (engine === "pmtsql") {
-        log("Engine: Poor Man's T-SQL (pmtsql).");
-        let formatted = formatWithPoorMans(sql, options.tabWidth);
-        if (cfg.get<boolean>("postProcessHouse", true)) {
-          formatted = lightHousePostProcess(formatted, options);
-        }
-        return formatted;
-      } else {
-        log("Engine: House formatter.");
-        return houseFormat(sql, options);
+      log("Engine: Poor Man's T-SQL (pmtsql).");
+      let formatted = formatWithPoorMans(sql, options.tabWidth);
+      if (cfg.get<boolean>("postProcessHouse", true)) {
+        formatted = lightHousePostProcess(formatted, options);
       }
+      return formatted;
     };
 
     return formatWithYardiSupport(text, formatFn);

@@ -26,7 +26,6 @@ export function formatSql(input: string, opts: StylistOptions): string {
   });
 
   // house-style passes (order matters)
-  // out = forceSemicolonBeforeWith(out);
   out = uppercaseFunctions(out);
   out = uppercaseDataTypes(out);
   out = compactCaseWhenHeaders(out);
@@ -54,25 +53,6 @@ export function lightHousePostProcess(
   opts: StylistOptions
 ): string {
   let out = sql;
-  // safe, visual-only tweaks
-  // out = uppercaseFunctions(out);
-  // out = uppercaseDataTypes(out);
-  // out = compactCaseWhenHeaders(out);
-  // out = compactWhereFirstPredicate(out);
-  // out = compactHavingFirstPredicate(out);
-  // out = compactIntoTarget(out);
-  // out = leftAlignJoins(out);
-  // out = indentJoinContinuations(out, opts.tabWidth);
-
-  // // FIX: indent “SELECT * FROM (SELECT …) x” properly (works even when the "(" is on same line)
-  // out = indentDerivedTablesSmart(out, opts.tabWidth);
-
-  // // FIX: normalize two-line IF OBJECT_ID(...) / DROP TABLE ... blocks
-  // out = normalizeIfDropBlocks(out);
-
-  // if (opts.oneLineFunctionArgs) out = collapseCommonFunctionArgs(out);
-  // if (opts.commaBeforeColumn) out = applyLeadingCommasToSelect(out);
-  // if (opts.convertLineCommentsToBlock) out = convertLineComments(out);
 
   if (opts.alignAs) {
     log("Aligning AS Statements.");
@@ -119,14 +99,6 @@ function alignAsInSelect(text: string): string {
 
     return header + adjusted.join("\n");
   });
-}
-
-/** Merge accidental line breaks after JOIN so object name stays on the same line. */
-function fixSplitJoinNames(text: string): string {
-  // Turn any "JOIN\n  Foo" into "JOIN Foo"
-  return text.replace(/\b(JOIN|APPLY)\s*\n+\s+/gi, (s) =>
-    s.replace(/\s*\n+\s+/g, " ")
-  );
 }
 
 /** Uppercase common T-SQL functions so they “shout” like keywords. */
@@ -339,69 +311,6 @@ function selectListLeadingCommas(text: string): string {
     }
     return "SELECT" + out.join("\n") + "\nFROM";
   });
-}
-
-/** Collapse argument lists of given functions to a single line (handles nesting). */
-function collapseFunctionArgsToSingleLine(text: string, fns: string[]): string {
-  const upperSet = new Set(fns.map((f) => f.toUpperCase()));
-  const isIdent = (c: string) => /[A-Za-z0-9_]/.test(c);
-  const src = text;
-  let i = 0;
-  let out = "";
-
-  while (i < src.length) {
-    if (/[A-Za-z_]/.test(src[i])) {
-      let j = i;
-      while (j < src.length && isIdent(src[j])) j++;
-      const name = src.slice(i, j).toUpperCase();
-
-      let k = j;
-      while (k < src.length && /\s/.test(src[k])) k++;
-
-      if (upperSet.has(name) && src[k] === "(") {
-        // capture balanced parentheses
-        let depth = 0,
-          p = k;
-        do {
-          const ch = src[p++];
-          if (ch === "(") depth++;
-          else if (ch === ")") depth--;
-        } while (p <= src.length && depth > 0);
-
-        const inside = src
-          .slice(k + 1, p - 1)
-          .replace(/\s*\n\s*/g, " ")
-          .replace(/\s{2,}/g, " ");
-
-        out += src.slice(i, k) + "(" + inside + ")";
-        i = p;
-        continue;
-      }
-    }
-    out += src[i++];
-  }
-  return out;
-}
-
-/** Keep the target on the same line as INTO (handles SELECT/INSERT/OUTPUT INTO). */
-function compactIntoTarget(text: string): string {
-  return text.replace(/\bINTO\s*\n\s*/gi, "INTO ");
-}
-
-/** Remove spaces after the comma inside simple VALUES tuples: ('Key', Value) -> ('Key',Value). */
-function tightenValuesTupleSpacing(text: string): string {
-  // Only affects tuples that begin with a string literal.
-  return text.replace(/\(\s*('[^']*')\s*,\s*/g, "($1,");
-}
-
-/** Force ';WITH' at start-of-line CTEs and remove blank lines before it. */
-function normalizeCteWith(text: string): string {
-  // 1) Any line that *starts* with WITH (optionally with stray spaces/semicolon) -> ';WITH'
-  //    Anchored to line start so we won't touch table hints like "... WITH (NOLOCK)".
-  text = text.replace(/^\s*;?\s*WITH\b/gim, ";WITH");
-  // 2) Nuke extra blank lines immediately before a ;WITH
-  text = text.replace(/\n{2,}(?=;WITH\b)/g, "\n");
-  return text;
 }
 
 // --- helpers to scan safely (ignore strings/comments/brackets) ---
@@ -761,75 +670,4 @@ function indentDerivedTables(sql: string, tabWidth: number): string {
     i += 1;
   }
   return out.join("\n");
-}
-
-/** Normalize:
- * IF OBJECT_ID('X') IS NOT NULL
- * DROP TABLE [X];
- * (remove blank lines and ensure single semicolon)
- */
-function normalizeIfDropBlocks(text: string): string {
-  // collapse extra blanks and enforce two-line pattern + trailing semicolon
-  return text.replace(
-    /(IF\s+OBJECT_ID\([^\n]+?\)\s+IS\s+NOT\s+NULL)[\s;]*\r?\n+\s*(DROP\s+TABLE\s+\[[^\]\n]+\])\s*;?/gi,
-    (_m, ifPart, dropPart) =>
-      `${String(ifPart).trim()}\n${String(dropPart).trim()};`
-  );
-}
-
-/** Derived-table indent that also handles "FROM ( SELECT ..." on the SAME line. */
-function indentDerivedTablesSmart(sql: string, tabWidth: number): string {
-  const lines = sql.split(/\r?\n/);
-  const space = (n: number) => " ".repeat(Math.max(0, n));
-  const getIndent = (s: string) => s.match(/^\s*/)?.[0].length ?? 0;
-
-  type Block = { baseIndent: number; parenDepth: number };
-  const stack: Block[] = [];
-  let globalDepth = 0;
-
-  for (let i = 0; i < lines.length; i++) {
-    const raw = lines[i];
-    const noLine = stripLineComments(raw);
-    const noCom = stripBlockComments(noLine);
-    const indent = getIndent(raw);
-
-    // Does this line begin a FROM/JOIN/APPLY and increase paren depth (i.e., FROM ( ... ) ) ?
-    const opensContext =
-      /\b(FROM|JOIN|CROSS\s+APPLY|OUTER\s+APPLY|APPLY)\b/i.test(noCom);
-    const delta = netParenDelta(noCom);
-    const depthBefore = globalDepth;
-    const depthAfter = depthBefore + delta;
-
-    // Start a derived-table block if we see a FROM/JOIN/APPLY and net "(" opened on this line
-    if (opensContext && delta > 0) {
-      stack.push({ baseIndent: indent, parenDepth: depthBefore + 1 });
-      lines[i] = raw.trimEnd(); // keep original indent / text
-      globalDepth = depthAfter;
-      continue;
-    }
-
-    if (stack.length) {
-      const top = stack[stack.length - 1];
-
-      // If this line is a closing ) [AS alias] — outdent to base indent
-      if (
-        depthAfter <= top.parenDepth - 1 &&
-        /\)\s*(AS\s+\S+)?\s*;?\s*$/i.test(noCom.trim())
-      ) {
-        lines[i] = space(top.baseIndent) + noCom.trim();
-        stack.pop();
-        globalDepth = depthAfter;
-        continue;
-      }
-
-      // Otherwise indent one level more than the opener
-      lines[i] = space(top.baseIndent + tabWidth) + raw.trim();
-      globalDepth = depthAfter;
-      continue;
-    }
-
-    globalDepth = depthAfter;
-  }
-
-  return lines.join("\n");
 }

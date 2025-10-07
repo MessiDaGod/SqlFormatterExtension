@@ -6,7 +6,7 @@
     },
     "displayName": "A Better SQL Stylist (T-SQL Formatter)",
     "description": "Opinionated T-SQL formatter matching ChatGPT's house style: uppercase keywords, clean indentation, optional AS alignment and block-comments.",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "publisher": "shakely-consulting",
     "engines": {
         "vscode": "^1.85.0"
@@ -78,11 +78,11 @@
                 "sqlStylist.engine": {
                     "type": "string",
                     "enum": [
-                        "house",
-                        "pmtsql"
+                        "pmtsql",
+                        "house"
                     ],
-                    "default": "house",
-                    "description": "Choose the formatter engine: built-in (house) or Poor Man's T-SQL (pmtsql)."
+                    "default": "pmtsql",
+                    "description": "Poor Man's T-SQL (pmtsql)."
                 },
                 "sqlStylist.postProcessHouse": {
                     "type": "boolean",
