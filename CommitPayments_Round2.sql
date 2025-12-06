@@ -1,148 +1,146 @@
-/* exclude resident */
-SELECT pr.hMy AS PayeeId
-	,MAX(ISNULL(b.bInactive, 0)) AS IsInactiveBank
-	,CASE
-		WHEN MAX(ISNULL(co.iInsuranceLevel, 0)) = 1
-			THEN CASE
-					WHEN MIN(ISNULL(co.iInsuranceLevel, 0)) = 1
-						THEN 0
-					ELSE CASE
-							WHEN ISNULL(v.DDATEWCINSUR, CONVERT(DATETIME, '09/30/2025', 101)) >= CONVERT(DATETIME, '09/30/2025', 101)
-								THEN 0
-							ELSE - 1
-							END
-					END
-		ELSE CASE
-				WHEN ISNULL(v.DDATEWCINSUR, CONVERT(DATETIME, '09/30/2025', 101)) >= CONVERT(DATETIME, '09/30/2025', 101)
-					THEN 0
-				ELSE - 1
-				END
-		END AS VendorWCInsur
-	,CASE
-		WHEN MAX(ISNULL(co.iInsuranceLevel, 0)) = 1
-			THEN CASE
-					WHEN MIN(ISNULL(co.iInsuranceLevel, 0)) = 1
-						THEN NULL
-					ELSE CASE
-							WHEN ISNULL(v.DDATEWCINSUR, CONVERT(DATETIME, '09/30/2025', 101)) >= CONVERT(DATETIME, '09/30/2025', 101)
-								THEN NULL
-							ELSE v.DDATEWCINSUR
-							END
-					END
-		ELSE CASE
-				WHEN ISNULL(v.DDATEWCINSUR, CONVERT(DATETIME, '09/30/2025', 101)) >= CONVERT(DATETIME, '09/30/2025', 101)
-					THEN NULL
-				ELSE v.DDATEWCINSUR
-				END
-		END AS VendorWCInsurDate
-	,CASE
-		WHEN MAX(ISNULL(co.iInsuranceLevel, 0)) = 1
-			THEN CASE
-					WHEN MIN(ISNULL(co.iInsuranceLevel, 0)) = 1
-						THEN 0
-					ELSE CASE
-							WHEN ISNULL(v.DDATELIABINSUR, CONVERT(DATETIME, '09/30/2025', 101)) >= CONVERT(DATETIME, '09/30/2025', 101)
-								THEN 0
-							ELSE - 1
-							END
-					END
-		ELSE CASE
-				WHEN ISNULL(v.DDATELIABINSUR, CONVERT(DATETIME, '09/30/2025', 101)) >= CONVERT(DATETIME, '09/30/2025', 101)
-					THEN 0
-				ELSE - 1
-				END
-		END AS VendorLiabInsur
-	,CASE
-		WHEN MAX(ISNULL(co.iInsuranceLevel, 0)) = 1
-			THEN CASE
-					WHEN MIN(ISNULL(co.iInsuranceLevel, 0)) = 1
-						THEN NULL
-					ELSE CASE
-							WHEN ISNULL(v.DDATELIABINSUR, CONVERT(DATETIME, '09/30/2025', 101)) >= CONVERT(DATETIME, '09/30/2025', 101)
-								THEN NULL
-							ELSE v.DDATELIABINSUR
-							END
-					END
-		ELSE CASE
-				WHEN ISNULL(v.DDATELIABINSUR, CONVERT(DATETIME, '09/30/2025', 101)) >= CONVERT(DATETIME, '09/30/2025', 101)
-					THEN NULL
-				ELSE v.DDATELIABINSUR
-				END
-		END AS VendorLiabInsurDate
-FROM CommitPayments cp
-JOIN detail d ON cp.hdetail = d.hmy
-	AND d.bRet = 0
-	AND ISNULL(d.hchkorchg, 0) = 0
-JOIN trans t ON t.hMy = cp.hTran
-JOIN person pr ON pr.hMy = cp.hPerson
-JOIN vendor v ON v.hMyperson = pr.hMy
-LEFT JOIN RemittanceVendor rv ON rv.hMyperson = t.hRemittanceVendor
-JOIN bank b ON b.hMy = d.hBank
-JOIN acct a ON a.hMy = d.hOffset
-JOIN property p ON p.hMy = cp.hProp
-LEFT JOIN trans_int ti ON ti.hTran = t.hMy
-LEFT JOIN caparam cap ON cap.hchart = a.hchart
-LEFT JOIN property f ON f.hMy = t.hFunding
-LEFT JOIN [contract] co ON co.hmy = d.hContract
-	AND ISNULL(co.hContract, 0) = 0
-LEFT JOIN Job j ON j.hmy = d.hJob
-LEFT JOIN glinvregtrans InvReg ON InvReg.hPayable = t.hMy
-LEFT JOIN cmdetail cmret ON cmret.hRetDetail = d.hmy
-LEFT JOIN cmdetail cmnoret ON cmnoret.hdetail = d.hmy
-LEFT JOIN vendor v2ret ON v2ret.HMYPERSON = cmret.h2ndVendor
-LEFT JOIN vendor v2noret ON v2noret.HMYPERSON = cmnoret.h2ndVendor
-LEFT JOIN PayablePaymentMethod apm ON apm.ivalue = t.CashReceipt
-LEFT JOIN country_info ci ON ci.hmy = pr.hCountry
-WHERE 1 = 1
-	AND cp.bpaid = 0
-	AND t.Voider = 0
-	AND t.Voided = 0
-	AND ISNULL(t.uRef, '') NOT LIKE ':CIS%'
-	AND cp.hTran IN (
-		SELECT CASE ISNULL(wf.iStatus, 1)
-				WHEN 1
-					THEN x.hMy
-				ELSE - 1
-				END
-		FROM trans x
-		LEFT JOIN wf_tran_header wf ON (
-				wf.hRecord = x.hMy
-				AND wf.iType = 30
-				)
-		WHERE 1 = 1
-			AND x.iType = 3
-			AND x.hMy = cp.hTran
+IF OBJECT_ID('tempdb..#tempDetails') IS NOT NULL
+	DROP TABLE #tempDetails;
+GO
+
+DECLARE @PropertyCount INT = 1
+	,@PropertyHmys VARCHAR(max) = NULL
+	,@ToDate DATE = '09/01/2004';;
+
+WITH JournalBase
+AS (
+	SELECT
+	tr.hProp
+		,CAST((tr.hMy - 1000000000)         AS BIGINT) AS TranIdCtrl
+		,CAST(tr.hMy                        AS BIGINT) AS TranId
+		,TRIM(ac.sCode)                     AS Account
+		,ac.sDesc                           AS AccountDesc
+		,TRIM(p.sCode)                      AS Property
+		,d.sNotes                           AS Notes
+		,tr.sOtherDate1                     AS [Date]
+		,tr.uPostDate                       AS PostMonth
+		,FORMAT(tr.uPostDate, 'MM/dd/yyyy') AS PostMonthFormat
+		,d.sAmount                          AS dAmount
+		,CASE 
+			WHEN d.sAmount > 0
+				THEN d.sAmount
+			ELSE 0
+			END                                AS Debit
+		,CASE 
+			WHEN d.sAmount < 0
+				THEN ABS(d.sAmount)
+			ELSE 0
+			END                                AS Credit
+		,CASE 
+			WHEN MONTH(tr.uPostDate) = 1
+				OR MONTH(tr.uPostDate) = 12
+				THEN 1
+			ELSE 0
+			END                                AS IsNetIncomeEligible
+	FROM trans tr
+	JOIN detail d ON tr.hMy = d.hInvorRec
+	JOIN property p ON d.hProp = p.hMy
+	LEFT JOIN acct ac ON d.hAcct = ac.hMy
+	WHERE tr.iType = 10
+		AND tr.hMy IN (
+			SELECT
+	g.hTran
+			FROM gldetail g
+			INNER JOIN acct a ON g.hAcct = a.hmy
+			INNER JOIN property p ON g.hprop = p.hmy
+			INNER JOIN trans tr ON tr.hMy = g.hTran
+			WHERE a.hMy IN (
+					1985
+					,1105
+					) /* 148570 / 435500 */
+				AND g.iBook = 0
+				AND g.iType = 10
+				AND (p.sCode = 'i0000194')
+			)
+		AND ac.hMy IN (
+			1985
+			,1105
+			)
+		AND (
+			@ToDate IS NULL
+			OR tr.uPostDate = @ToDate
+			)
+	)
+	,Rollup
+AS (
+	SELECT
+	TranId
+		,SUM(CASE 
+				WHEN Account = '435500'
+					THEN (Credit - Debit) /* revenue: credit=+income, debit=loss */
+				ELSE 0
+				END) AS Net435500
+		,SUM(CASE 
+				WHEN Account = '148570'
+					THEN (Debit - Credit) /* capital: debit=+to capital, credit=-from capital */
+				ELSE 0
+				END) AS Total148570
+	FROM JournalBase
+	GROUP BY TranId
+	)
+SELECT
+	b.TranId
+	,b.Property
+	,b.Account
+	,b.Notes
+	,
+	/* FORMAT(b.[Date], 'MM/dd/yyyy') Date, */
+	/* FORMAT(b.PostMonth, 'MM/dd/yyyy') PostMonth, */
+	b.DATE
+	,b.PostMonth
+	,
+	/* b.dAmount */
+	b.Debit
+	,b.Credit
+	,b.IsNetIncomeEligible
+	,r.Net435500
+	,r.Total148570
+	,(r.Total148570 - r.Net435500) AS RemainderForDrawsContribs
+INTO #tempDetails
+FROM JournalBase b
+JOIN Rollup r ON r.TranId = b.TranId
+WHERE b.Account IN (
+		'148570'
+		,'435500'
 		)
-	AND ISNULL(p.bInactive, 0) = 0
+ORDER BY b.TranId
+	,b.Notes
+	,b.dAmount;
+
+SELECT
+	CAST(MAX(tr.hMy)             AS BIGINT) AS TranId
+	,TRIM(p.sCode)               AS Property
+	,STRING_AGG(d.sNotes, ' | ') AS Notes
+	,tr.sOtherDate1              AS [Date]
+	,tr.uPostDate                AS PostMonth
+	,SUM(d.sAmount)              AS Amount
+FROM trans tr
+JOIN detail d ON tr.hMy = d.hInvorRec
+JOIN property p ON d.hProp = p.hMy
+LEFT JOIN acct ac ON d.hAcct = ac.hMy
+WHERE tr.iType = 10
+	AND tr.hMy IN (
+		SELECT
+	g.hTran
+		FROM gldetail g
+		INNER JOIN acct a ON g.hAcct = a.hmy
+		INNER JOIN property p ON g.hprop = p.hmy
+		INNER JOIN trans tr ON tr.hMy = g.hTran
+		WHERE a.hMy = 1985
+			AND g.iBook = 0
+			AND g.iType = 10
+			AND (p.sCode = 'i0000194')
+		)
+	AND ac.hMy = 1985
 	AND (
-		v.DDATEWCINSUR IS NOT NULL
-		AND v.DDATEWCINSUR < CAST(GETDATE() AS DATE)
-		OR v.DDATELIABINSUR IS NOT NULL
-		AND v.DDATELIABINSUR < CAST(GETDATE() AS DATE)
+		@ToDate IS NULL
+		OR tr.uPostDate = @ToDate
 		)
-GROUP BY pr.hMy
-	,cp.hTran
-	,pr.uLastName
-	,cp.sInvoiceNumber
-	,t.sOtherDate1
-	,a.hMy
-	,a.hChart
-	,a.sCode
-	,b.sCode
-	,b.hMy
-	,t.bAch
-	,t.CashReceipt
-	,t.holdPayment
-	,pr.ucode
-	,ISNULL(ti.sGAcctAmount, 0)
-	,ISNULL(t.ConsolidateCheck, 0)
-	,t.sDiscountAmt
-	,t.iSubType
-	,t.adjustment
-	,t.uPostDate
-	,t.isubtype
-	,v.dDateWcInsur
-	,v.dDateLiabInsur
-	,ISNULL(cmret.s2ndVendor, ISNULL(cmnoret.s2ndvendor, ''))
-	,ISNULL(cmret.h2ndVendor, ISNULL(cmnoret.h2ndVendor, 0))
-HAVING MAX(ISNULL(b.bInactive, 0)) = 0
+GROUP BY tr.uPostDate
+	,tr.sOtherDate1
+	,TRIM(p.sCode)
+ORDER BY tr.uPostDate;

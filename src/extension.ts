@@ -95,6 +95,7 @@ export function activate(context: vscode.ExtensionContext) {
         true
       ),
       alignAs: cfg.get<boolean>("alignAs", false),
+      uppercaseKeywords: cfg.get<boolean>("uppercaseKeywords", false),
       commaBeforeColumn: cfg.get<boolean>("commaBeforeColumn", false),
       oneLineFunctionArgs: cfg.get<boolean>("oneLineFunctionArgs", true),
       forceSemicolonBeforeWith: cfg.get<boolean>(

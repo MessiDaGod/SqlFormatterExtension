@@ -6,7 +6,7 @@
     },
     "displayName": "A Better SQL Stylist (T-SQL Formatter)",
     "description": "Opinionated T-SQL formatter matching ChatGPT's house style: uppercase keywords, clean indentation, optional AS alignment and block-comments.",
-    "version": "0.3.1",
+    "version": "0.3.3",
     "publisher": "shakely-consulting",
     "engines": {
         "vscode": "^1.85.0"
@@ -23,6 +23,11 @@
         "configuration": {
             "title": "Better SQL Stylist",
             "properties": {
+                "sqlStylist.autoUpdate": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Automatically update formatting rules."
+                },
                 "sqlStylist.keywordCase": {
                     "type": "string",
                     "enum": [
@@ -54,6 +59,11 @@
                     "type": "boolean",
                     "default": false,
                     "description": "Align `AS` in SELECT lists (naive; best for simple SELECT lists)."
+                },
+                "sqlStylist.uppercaseKeywords": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Always UPPERCASE key words (DATE, DECLARE, etc.)."
                 },
                 "sqlStylist.commaBeforeColumn": {
                     "type": "boolean",

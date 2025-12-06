@@ -10,6 +10,7 @@ export interface StylistOptions {
   linesBetweenQueries: number;
   convertLineCommentsToBlock: boolean;
   alignAs: boolean;
+  uppercaseKeywords: boolean;
   commaBeforeColumn: boolean;
   oneLineFunctionArgs: boolean;
   tightValuesTupleSpacing?: boolean;
@@ -18,14 +19,21 @@ export interface StylistOptions {
 
 export function formatSql(input: string, opts: StylistOptions): string {
   log("Formatting through house!");
+
+  const keywordCase: KeywordCase =
+    opts.uppercaseKeywords ? "upper" : (opts.keywordCase ?? "preserve");
+
   let out = format(input, {
     language: "transactsql",
-    keywordCase: opts.keywordCase,
+    keywordCase,
     tabWidth: opts.tabWidth,
     linesBetweenQueries: opts.linesBetweenQueries,
   });
 
-  // house-style passes (order matters)
+
+
+
+  // house-style passes...
   out = uppercaseFunctions(out);
   out = uppercaseDataTypes(out);
   out = compactCaseWhenHeaders(out);
@@ -45,7 +53,22 @@ export function formatSql(input: string, opts: StylistOptions): string {
     out = alignAsInSelect(out);
   }
 
+ 
   return out;
+}
+
+/** Replace "SELECT " (any case) with "SELECT\n " (newline + single space). */
+function addNewlineAfterSelect(text: string, tabWidth: number): string {
+  const extraIndent = " ".repeat(Math.max(tabWidth || 4, 1));
+
+  return text.replace(
+    /^(\s*)(SELECT)\s+/gim,
+    (match, indent, selectKeyword) => {
+      // indent  = existing leading whitespace before SELECT
+      // selectKeyword = "SELECT" in whatever case is in the source
+      return `${indent}${selectKeyword}\n${indent}${extraIndent}`;
+    }
+  );
 }
 
 export function lightHousePostProcess(
@@ -58,6 +81,9 @@ export function lightHousePostProcess(
     log("Aligning AS Statements.");
     out = alignAsInSelect(out);
   }
+
+  log("Adding new line after `SELECT `");
+  out = addNewlineAfterSelect(out, opts.tabWidth);
 
   return out;
 }
@@ -375,7 +401,7 @@ function findSelectListRanges(
     // start right after this SELECT
     let i = m.index + m[0].length;
     // skip TOP (...) or DISTINCT etc.
-    for (;;) {
+    for (; ;) {
       const tail = src.slice(i);
       const head =
         tail.match(
