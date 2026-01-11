@@ -53,22 +53,8 @@ export function formatSql(input: string, opts: StylistOptions): string {
     out = alignAsInSelect(out);
   }
 
- 
+
   return out;
-}
-
-/** Replace "SELECT " (any case) with "SELECT\n " (newline + single space). */
-function addNewlineAfterSelect(text: string, tabWidth: number): string {
-  const extraIndent = " ".repeat(Math.max(tabWidth || 4, 1));
-
-  return text.replace(
-    /^(\s*)(SELECT)\s+/gim,
-    (match, indent, selectKeyword) => {
-      // indent  = existing leading whitespace before SELECT
-      // selectKeyword = "SELECT" in whatever case is in the source
-      return `${indent}${selectKeyword}\n${indent}${extraIndent}`;
-    }
-  );
 }
 
 export function lightHousePostProcess(
@@ -82,25 +68,14 @@ export function lightHousePostProcess(
     out = alignAsInSelect(out);
   }
 
-  log("Adding new line after `SELECT `");
+  log("Adding new line after `SELECT `.");
   out = addNewlineAfterSelect(out, opts.tabWidth);
+  log("Converting line comments!");
+  if (opts.convertLineCommentsToBlock) out = convertLineComments(out);
 
   return out;
 }
 
-/** Convert comment-only lines that start with `--` into block comments. */
-function convertLineComments(text: string): string {
-  const lines = text.split(/\r?\n/);
-  for (let i = 0; i < lines.length; i++) {
-    const m = /^(\s*)--(.*)$/.exec(lines[i]);
-    if (m) {
-      const indent = m[1] ?? "";
-      const content = (m[2] ?? "").trim();
-      lines[i] = `${indent}/* ${content} */`;
-    }
-  }
-  return lines.join("\n");
-}
 
 /** Naive `AS` alignment between SELECT and the next FROM. */
 function alignAsInSelect(text: string): string {
@@ -126,6 +101,32 @@ function alignAsInSelect(text: string): string {
     return header + adjusted.join("\n");
   });
 }
+ 
+/** Replace "SELECT" + trailing spaces/tabs with "SELECT\n<indent><extraIndent>" */
+function addNewlineAfterSelect(text: string, tabWidth: number): string {
+  const extraIndent = " ".repeat(Math.max(tabWidth || 4, 1));
+
+  return text.replace(
+    /^(\s*)(SELECT)(?:[^\S\r\n]*\r?\n)+[^\S\r\n]*/gim,
+    (_m, indent, kw) => `${indent}${kw}\n${indent}${extraIndent}`
+  );
+}
+
+
+/** Convert comment-only lines that start with `--` into block comments. */
+function convertLineComments(text: string): string {
+  const lines = text.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const m = /^(\s*)--(.*)$/.exec(lines[i]);
+    if (m) {
+      const indent = m[1] ?? "";
+      const content = (m[2] ?? "").trim();
+      lines[i] = `${indent}/* ${content} */`;
+    }
+  }
+  return lines.join("\n");
+}
+
 
 /** Uppercase common T-SQL functions so they “shout” like keywords. */
 function uppercaseFunctions(text: string): string {

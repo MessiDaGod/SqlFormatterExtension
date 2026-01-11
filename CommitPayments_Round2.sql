@@ -9,7 +9,7 @@ DECLARE @PropertyCount INT = 1
 WITH JournalBase
 AS (
 	SELECT
-	tr.hProp
+	    tr.hProp                             AS hProp
 		,CAST((tr.hMy - 1000000000)         AS BIGINT) AS TranIdCtrl
 		,CAST(tr.hMy                        AS BIGINT) AS TranId
 		,TRIM(ac.sCode)                     AS Account
@@ -43,7 +43,7 @@ AS (
 	WHERE tr.iType = 10
 		AND tr.hMy IN (
 			SELECT
-	g.hTran
+			    g.hTran
 			FROM gldetail g
 			INNER JOIN acct a ON g.hAcct = a.hmy
 			INNER JOIN property p ON g.hprop = p.hmy
@@ -68,7 +68,7 @@ AS (
 	,Rollup
 AS (
 	SELECT
-	TranId
+	    TranId
 		,SUM(CASE 
 				WHEN Account = '435500'
 					THEN (Credit - Debit) /* revenue: credit=+income, debit=loss */
@@ -83,7 +83,7 @@ AS (
 	GROUP BY TranId
 	)
 SELECT
-	b.TranId
+    b.TranId
 	,b.Property
 	,b.Account
 	,b.Notes
@@ -112,7 +112,8 @@ ORDER BY b.TranId
 	,b.dAmount;
 
 SELECT
-	CAST(MAX(tr.hMy)             AS BIGINT) AS TranId
+
+    CAST(MAX(tr.hMy)             AS BIGINT) AS TranId
 	,TRIM(p.sCode)               AS Property
 	,STRING_AGG(d.sNotes, ' | ') AS Notes
 	,tr.sOtherDate1              AS [Date]
@@ -125,7 +126,7 @@ LEFT JOIN acct ac ON d.hAcct = ac.hMy
 WHERE tr.iType = 10
 	AND tr.hMy IN (
 		SELECT
-	g.hTran
+		    g.hTran
 		FROM gldetail g
 		INNER JOIN acct a ON g.hAcct = a.hmy
 		INNER JOIN property p ON g.hprop = p.hmy
